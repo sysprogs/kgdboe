@@ -200,19 +200,19 @@ static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 		goto out;
 
 #ifndef NETPOLL_RX_HOOK_SUPPORTED
-	if (pWrapper->netpoll_obj1.local_ip && pWrapper->netpoll_obj1.local_ip == iph->daddr &&
+	if (ip_addr_as_int(pWrapper->netpoll_obj1.local_ip) && ip_addr_as_int(pWrapper->netpoll_obj1.local_ip) == iph->daddr &&
 		pWrapper->netpoll_obj1.local_port && pWrapper->netpoll_obj1.local_port == ntohs(uh->dest))
 	{
-		pWrapper->netpoll_obj.remote_port = port;
+		pWrapper->netpoll_obj1.remote_port = ntohs(uh->source);
 		if (pWrapper->pReceiveHandler)
-			pReceiveHandler(pWrapper, netpoll_wrapper_iface1, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr);
+		pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface1, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr));
 	}
-	if (pWrapper->netpoll_obj2.local_ip && pWrapper->netpoll_obj2.local_ip == iph->daddr &&
+	if (ip_addr_as_int(pWrapper->netpoll_obj2.local_ip) && ip_addr_as_int(pWrapper->netpoll_obj2.local_ip) == iph->daddr &&
 		pWrapper->netpoll_obj2.local_port && pWrapper->netpoll_obj2.local_port == ntohs(uh->dest))
 	{
-		pWrapper->netpoll_obj.remote_port = port;
+		pWrapper->netpoll_obj2.remote_port = ntohs(uh->source);
 		if (pWrapper->pReceiveHandler)
-			pReceiveHandler(pWrapper, netpoll_wrapper_iface2, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr);
+			pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface2, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr));
 	}
 #endif
 out:
@@ -236,7 +236,7 @@ void netpoll_wrapper_set_reply_addresses(struct netpoll_wrapper *pWrapper, const
 	BUG_ON(!pMacAddress);
 	memcpy(pWrapper->netpoll_obj1.remote_mac, pMacAddress, sizeof(pWrapper->netpoll_obj1.remote_mac));
 	memcpy(pWrapper->netpoll_obj2.remote_mac, pMacAddress, sizeof(pWrapper->netpoll_obj2.remote_mac));
-	pWrapper->netpoll_obj1.remote_ip = pWrapper->netpoll_obj2.remote_ip = ipAddres;
+	ip_addr_as_int(pWrapper->netpoll_obj1.remote_ip) = ip_addr_as_int(pWrapper->netpoll_obj2.remote_ip) = ipAddres;
 	pWrapper->reply_address_assigned = true;
 }
 

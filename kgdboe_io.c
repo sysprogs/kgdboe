@@ -135,7 +135,7 @@ static struct kgdb_io kgdboe_io_ops = {
 	.post_exception = kgdboe_post_exception
 };
 
-int kgdboe_io_init()
+int kgdboe_io_init(void)
 {
 	pkgdb_roundup_cpus = kallsyms_lookup_name("kgdb_roundup_cpus");
 	if (!pkgdb_roundup_cpus)
@@ -162,7 +162,7 @@ int kgdboe_io_init()
 	return 0;
 }
 
-void kgdboe_io_cleanup()
+void kgdboe_io_cleanup(void)
 {
 	netpoll_wrapper_free(s_pKgdboeNetpoll);
 	s_pKgdboeNetpoll = NULL;

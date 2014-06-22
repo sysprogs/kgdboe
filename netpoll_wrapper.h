@@ -1,6 +1,7 @@
 #pragma once
 #include <linux/netpoll.h>
 #include <linux/atomic.h>
+#include <linux/version.h>
 
 enum netpoll_wrapper_iface
 {
@@ -10,8 +11,14 @@ enum netpoll_wrapper_iface
 
 typedef void(*pnetpoll_wrapper_rx_handler)(void *pContext, enum netpoll_wrapper_iface iface, int port, char *msg, int len);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
 #define NETPOLL_RX_HOOK_SUPPORTED
 #define NETPOLL_POLL_DEV_USABLE
+
+#define ip_addr_as_int(addr) (addr)
+#else
+#define ip_addr_as_int(addr) ((addr).ip)
+#endif
 
 struct netpoll_wrapper
 {
@@ -24,7 +31,7 @@ struct netpoll_wrapper
 #ifdef NETPOLL_POLL_DEV_USABLE
 	void (*netpoll_poll_dev)(struct net_device *dev);
 #else
-	void(*zap_completion_queue)();
+	void(*zap_completion_queue)(void);
 #endif
 	
 	bool netpoll1_initialized, netpoll2_initialized;
@@ -49,7 +56,8 @@ static void netpoll_wrapper_reset_reply_address(struct netpoll_wrapper *pWrapper
 {
 	BUG_ON(!pWrapper);
 	pWrapper->reply_address_assigned = false;
-	pWrapper->netpoll_obj1.remote_ip = pWrapper->netpoll_obj2.remote_ip = 0;
+	memset(&pWrapper->netpoll_obj1.remote_ip, 0, sizeof(pWrapper->netpoll_obj1.remote_ip));
+	memset(&pWrapper->netpoll_obj2.remote_ip, 0, sizeof(pWrapper->netpoll_obj2.remote_ip));
 }
 
 static void netpoll_wrapper_set_drop_flag(struct netpoll_wrapper *pWrapper, bool flag)
