@@ -2,7 +2,7 @@
 #Use VisualGDB Project Properties to edit.
 
 KERNEL_MODULE_NAME := kgdboe
-KERNEL_MODULE_OBJECT_FILE_LIST := kgdboe_main.o netpoll_wrapper.o poll_copy.o
+KERNEL_MODULE_OBJECT_FILE_LIST := kgdboe_main.o kgdboe_io.o netpoll_wrapper.o poll_copy.o
 
 obj-m := $(KERNEL_MODULE_NAME).o
 $(KERNEL_MODULE_NAME)-y += $(KERNEL_MODULE_OBJECT_FILE_LIST)

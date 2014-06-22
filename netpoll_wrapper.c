@@ -8,10 +8,11 @@
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb);
 
 #ifdef NETPOLL_RX_HOOK_SUPPORTED
-static void netpoll_wrapper_rx_hook(struct netpoll *np, int port, char *msg, int len);
+static void netpoll_wrapper_rx_hook1(struct netpoll *np, int port, char *msg, int len);
+static void netpoll_wrapper_rx_hook2(struct netpoll *np, int port, char *msg, int len);
 #endif
 
-struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, const char *pOptionalLocalIp)
+struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, int localPort2, const char *pOptionalLocalIp)
 {
 	if (!pDeviceName || !localPort)
 	{
@@ -61,9 +62,6 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	}
 
 	memset(pResult, 0, sizeof(*pResult));
-	strncpy(pResult->netpoll_obj.dev_name, pDeviceName, sizeof(pResult->netpoll_obj.dev_name));
-	pResult->netpoll_obj.name = "kgdboe";
-	pResult->netpoll_obj.local_port = localPort;
 
 #ifdef NETPOLL_POLL_DEV_USABLE
 	pResult->netpoll_poll_dev = (void(*)(struct net_device *))kallsyms_lookup_name("netpoll_poll_dev");
@@ -83,10 +81,6 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	}
 #endif
 
-#ifdef NETPOLL_RX_HOOK_SUPPORTED
-	pResult->netpoll_obj.rx_hook = netpoll_wrapper_rx_hook;
-#endif
-
 	int err = netdev_rx_handler_register(pDevice, netpoll_wrapper_rx_handler, pResult);
 	if (err < 0)
 	{
@@ -97,7 +91,22 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 
 	pResult->pDeviceWithHandler = pDevice;
 
-	err = netpoll_setup(&pResult->netpoll_obj);
+	strncpy(pResult->netpoll_obj1.dev_name, pDeviceName, sizeof(pResult->netpoll_obj1.dev_name));
+	pResult->netpoll_obj1.name = "kgdboe";
+	pResult->netpoll_obj1.local_port = localPort;
+	memset(pResult->netpoll_obj1.remote_mac, 0xFF, sizeof(pResult->netpoll_obj1.remote_mac));
+
+	strncpy(pResult->netpoll_obj2.dev_name, pDeviceName, sizeof(pResult->netpoll_obj2.dev_name));
+	pResult->netpoll_obj2.name = "kgdboe";
+	pResult->netpoll_obj2.local_port = localPort2;
+	memset(pResult->netpoll_obj2.remote_mac, 0xFF, sizeof(pResult->netpoll_obj2.remote_mac));
+
+#ifdef NETPOLL_RX_HOOK_SUPPORTED
+	pResult->netpoll_obj1.rx_hook = netpoll_wrapper_rx_hook1;
+	pResult->netpoll_obj2.rx_hook = netpoll_wrapper_rx_hook2;
+#endif
+
+	err = netpoll_setup(&pResult->netpoll_obj1);
 	if (err < 0)
 	{
 		printk(KERN_ERR "kgdboe: Failed to setup netpoll for %s, code %d\n", pDeviceName, err);
@@ -105,7 +114,17 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 		return NULL;
 	}
 
-	pResult->netpoll_initialized = true;
+	pResult->netpoll1_initialized = true;
+
+	err = netpoll_setup(&pResult->netpoll_obj2);
+	if (err < 0)
+	{
+		printk(KERN_ERR "kgdboe: Failed to setup netpoll for %s, code %d\n", pDeviceName, err);
+		netpoll_wrapper_free(pResult);
+		return NULL;
+	}
+
+	pResult->netpoll2_initialized = true;
 	return pResult;
 }
 
@@ -113,8 +132,10 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 {
 	if (pWrapper)
 	{
-		if (pWrapper->netpoll_initialized)
-			netpoll_cleanup(&pWrapper->netpoll_obj);
+		if (pWrapper->netpoll2_initialized)
+ 			netpoll_cleanup(&pWrapper->netpoll_obj2);
+		if (pWrapper->netpoll1_initialized)
+			netpoll_cleanup(&pWrapper->netpoll_obj1);
 		if (pWrapper->pDeviceWithHandler)
 			netdev_rx_handler_unregister(pWrapper->pDeviceWithHandler);
 		kfree(pWrapper);
@@ -136,12 +157,6 @@ static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 
 	struct netpoll_wrapper *pWrapper = (struct netpoll_wrapper *)skb->dev->rx_handler_data;
 	BUG_ON(!pWrapper);
-
-	if (atomic_xchg(&pWrapper->synced_action_pending, 0))
-	{
-		if (pWrapper->pSyncedAction)
-			pWrapper->pSyncedAction(pWrapper->pUserContext);
-	}
 
 	proto = ntohs(eth_hdr(skb)->h_proto);
 	if (proto != ETH_P_IP)
@@ -184,17 +199,22 @@ static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 	if (ulen != len)
 		goto out;
 
-	if (pWrapper->netpoll_obj.local_ip && pWrapper->netpoll_obj.local_ip == iph->daddr &&
-		pWrapper->netpoll_obj.local_port && pWrapper->netpoll_obj.local_port == ntohs(uh->dest))
-	{
-		memcpy(pWrapper->netpoll_obj.remote_mac, eth_hdr(skb)->h_source, sizeof(pWrapper->netpoll_obj.remote_mac));
-		pWrapper->netpoll_obj.remote_ip = iph->saddr;
 #ifndef NETPOLL_RX_HOOK_SUPPORTED
+	if (pWrapper->netpoll_obj1.local_ip && pWrapper->netpoll_obj1.local_ip == iph->daddr &&
+		pWrapper->netpoll_obj1.local_port && pWrapper->netpoll_obj1.local_port == ntohs(uh->dest))
+	{
 		pWrapper->netpoll_obj.remote_port = port;
 		if (pWrapper->pReceiveHandler)
-			pReceiveHandler(pWrapper, ntohs(uh->source), (char *)(uh+1), ulen - sizeof(struct udphdr);
-#endif
+			pReceiveHandler(pWrapper, netpoll_wrapper_iface1, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr);
 	}
+	if (pWrapper->netpoll_obj2.local_ip && pWrapper->netpoll_obj2.local_ip == iph->daddr &&
+		pWrapper->netpoll_obj2.local_port && pWrapper->netpoll_obj2.local_port == ntohs(uh->dest))
+	{
+		pWrapper->netpoll_obj.remote_port = port;
+		if (pWrapper->pReceiveHandler)
+			pReceiveHandler(pWrapper, netpoll_wrapper_iface2, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr);
+	}
+#endif
 out:
 	if (pWrapper->drop_other_packets)
 		return RX_HANDLER_CONSUMED;
@@ -207,44 +227,59 @@ void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, const void *pD
 	BUG_ON(!pWrapper);
 	BUG_ON(!pData);
 
-	netpoll_send_udp(&pWrapper->netpoll_obj, pData, dataSize);
+	netpoll_send_udp(&pWrapper->netpoll_obj1, pData, dataSize);
+}
+
+void netpoll_wrapper_set_reply_addresses(struct netpoll_wrapper *pWrapper, const void *pMacAddress, int ipAddres)
+{
+	BUG_ON(!pWrapper);
+	BUG_ON(!pMacAddress);
+	memcpy(pWrapper->netpoll_obj1.remote_mac, pMacAddress, sizeof(pWrapper->netpoll_obj1.remote_mac));
+	memcpy(pWrapper->netpoll_obj2.remote_mac, pMacAddress, sizeof(pWrapper->netpoll_obj2.remote_mac));
+	pWrapper->netpoll_obj1.remote_ip = pWrapper->netpoll_obj2.remote_ip = ipAddres;
+	pWrapper->reply_address_assigned = true;
 }
 
 void netpoll_wrapper_poll(struct netpoll_wrapper *pWrapper)
 {
 	BUG_ON(!pWrapper);
+	BUG_ON(pWrapper->netpoll_obj1.dev != pWrapper->netpoll_obj2.dev);
 #ifdef NETPOLL_POLL_DEV_USABLE
 	BUG_ON(!pWrapper->netpoll_poll_dev);
-	pWrapper->netpoll_poll_dev(pWrapper->netpoll_obj.dev);
+	pWrapper->netpoll_poll_dev(pWrapper->netpoll_obj1.dev);
 #else
 	BUG_ON(!pWrapper->zap_completion_queue);
-	netpoll_poll_dev_copy(pWrapper->netpoll_obj.dev, pWrapper->zap_completion_queue);
+	netpoll_poll_dev_copy(pWrapper->netpoll_obj1.dev, pWrapper->zap_completion_queue);
 #endif
 }
 
-void netpoll_wrapper_set_callbacks(struct netpoll_wrapper *pWrapper, pnetpoll_wrapper_rx_handler pReceiveHandler, pnetpoll_wrapper_synced_action pSyncedAction, void *pUserContext)
+void netpoll_wrapper_set_callback(struct netpoll_wrapper *pWrapper, pnetpoll_wrapper_rx_handler pReceiveHandler, void *pUserContext)
 {
 	BUG_ON(!pWrapper);
 	pWrapper->pReceiveHandler = pReceiveHandler;
-	pWrapper->pSyncedAction = pSyncedAction;
 	pWrapper->pUserContext = pUserContext;
 }
 
 #ifdef NETPOLL_RX_HOOK_SUPPORTED
-static void netpoll_wrapper_rx_hook(struct netpoll *np, int port, char *msg, int len)
+static void netpoll_wrapper_rx_hook1(struct netpoll *np, int port, char *msg, int len)
 {
 	BUG_ON(!np);
 
-	struct netpoll_wrapper *pWrapper = container_of(np, struct netpoll_wrapper, netpoll_obj);
-	pWrapper->netpoll_obj.remote_port = port;
-
-	if (atomic_xchg(&pWrapper->synced_action_pending, 0))
-	{
-		if (pWrapper->pSyncedAction)
-			pWrapper->pSyncedAction(pWrapper->pUserContext);
-	}
+	struct netpoll_wrapper *pWrapper = container_of(np, struct netpoll_wrapper, netpoll_obj1);
+	pWrapper->netpoll_obj1.remote_port = port;
 
 	if (pWrapper->pReceiveHandler)
-		pWrapper->pReceiveHandler(pWrapper, port, msg, len);
+		pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface1, port, msg, len);
+}
+
+static void netpoll_wrapper_rx_hook2(struct netpoll *np, int port, char *msg, int len)
+{
+	BUG_ON(!np);
+
+	struct netpoll_wrapper *pWrapper = container_of(np, struct netpoll_wrapper, netpoll_obj2);
+	pWrapper->netpoll_obj2.remote_port = port;
+
+	if (pWrapper->pReceiveHandler)
+		pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface2, port, msg, len);
 }
 #endif

@@ -62,12 +62,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="kgdboe_main.c" />
+    <ClCompile Include="kgdboe_io.c" />
     <ClCompile Include="netpoll_wrapper.c" />
     <ClCompile Include="netpoll_wrapper.h" />
     <ClCompile Include="poll_copy.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="kgdboe_io.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -27,10 +27,18 @@
     <ClCompile Include="poll_copy.c">
       <Filter>Source files</Filter>
     </ClCompile>
+    <ClCompile Include="kgdboe_io.c">
+      <Filter>Source files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile">
       <Filter>Source files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="kgdboe_io.h">
+      <Filter>Header files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
