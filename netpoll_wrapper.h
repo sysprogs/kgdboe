@@ -41,7 +41,7 @@ struct netpoll_wrapper
 
 struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, int localPort2, const char *pOptionalLocalIp);
 void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper);
-void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, const void *pData, int dataSize);
+void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, enum netpoll_wrapper_iface iface, const void *pData, int dataSize);
 void netpoll_wrapper_poll(struct netpoll_wrapper *pWrapper);
 void netpoll_wrapper_set_callback(struct netpoll_wrapper *pWrapper, pnetpoll_wrapper_rx_handler pReceiveHandler, void *pUserContext);
 void netpoll_wrapper_set_reply_addresses(struct netpoll_wrapper *pWrapper, const void *pMacAddress, int ipAddres);

@@ -217,17 +217,25 @@ static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 #endif
 out:
 	if (pWrapper->drop_other_packets)
+	{
+		kfree_skb(skb);
 		return RX_HANDLER_CONSUMED;
+	}
 	else
 		return RX_HANDLER_PASS;
 }
 
-void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, const void *pData, int dataSize)
+void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, enum netpoll_wrapper_iface iface, const void *pData, int dataSize)
 {
 	BUG_ON(!pWrapper);
 	BUG_ON(!pData);
 
-	netpoll_send_udp(&pWrapper->netpoll_obj1, pData, dataSize);
+	if (iface == netpoll_wrapper_iface1)
+		netpoll_send_udp(&pWrapper->netpoll_obj1, pData, dataSize);
+	else if (iface == netpoll_wrapper_iface2)
+		netpoll_send_udp(&pWrapper->netpoll_obj2, pData, dataSize);
+	else
+		BUG();
 }
 
 void netpoll_wrapper_set_reply_addresses(struct netpoll_wrapper *pWrapper, const void *pMacAddress, int ipAddres)
