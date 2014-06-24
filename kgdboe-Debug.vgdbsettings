@@ -87,12 +87,14 @@
     <SessionSettings>
       <EnumerateModulesOnStart>true</EnumerateModulesOnStart>
       <DetectModuleLoadEvents>true</DetectModuleLoadEvents>
-      <HookPrintk>true</HookPrintk>
+      <HookPrintk>false</HookPrintk>
       <EnableDebugHelper>true</EnableDebugHelper>
       <DebugHangingMachine>false</DebugHangingMachine>
       <SymbolSettings>
         <AutoLoadSymbolsForMainModule>true</AutoLoadSymbolsForMainModule>
         <InTreeModuleMode>LoadNone</InTreeModuleMode>
+        <EnabledInTreeModules />
+        <AdditionalModuleSymbolFiles />
         <AutoLoadInTreeSymbolsOnModuleLoad>true</AutoLoadInTreeSymbolsOnModuleLoad>
       </SymbolSettings>
       <DelayedSymbolLoadingWorkaround>false</DelayedSymbolLoadingWorkaround>

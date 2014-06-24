@@ -12,9 +12,14 @@ struct timer_list s_timer;
 
 volatile int test;
 
+void nethook_service();
+
 static void test_timer(unsigned long __opaque)
 {
-	mod_timer(&s_timer, jiffies + HZ);
+	mod_timer(&s_timer, jiffies + HZ / 10);
+	nethook_service();
+
+
 	if (test)
 	{
 		/*n = 0;

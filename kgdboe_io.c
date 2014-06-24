@@ -3,12 +3,9 @@
 #include <linux/kallsyms.h>
 #include "kgdboe_io.h"
 #include "netpoll_wrapper.h"
+#include "nethook.h"
 
 struct netpoll_wrapper *s_pKgdboeNetpoll;
-
-static const unsigned char idPacketHeader[] = { 0x45, 0x15, 0xa7, 0xaa, 0x63, 0xb5, 0xcf, 0x41, 0x9c, 0x7a, 0x25, 0x2b, 0x8d, 0xea, 0x64, 0x3e };
-static const int macAddrSize = ETH_ALEN;
-static const int ipAddrSize = 4;
 
 static char s_IncomingRingBuffer[4096];
 static volatile int s_IncomingRingBufferReadPosition;
@@ -21,91 +18,84 @@ static bool s_StoppedInKgdb;
 
 static void(*pkgdb_roundup_cpus)(void);
 
-static struct
-{
-	volatile bool RoundupPending;
-	int RequestingCore;
-} s_RoundupContext;
-
-static void kgdboe_rx_handler(void *pContext, enum netpoll_wrapper_iface iface, int port, char *msg, int len)
+static void kgdboe_rx_handler(void *pContext, int port, char *msg, int len)
 {
 	BUG_ON(!s_pKgdboeNetpoll);
-	if (s_RoundupContext.RoundupPending && s_RoundupContext.RequestingCore == raw_smp_processor_id())
-	{
-		pkgdb_roundup_cpus();
-		s_RoundupContext.RoundupPending = false;
-	}
 
-	if (iface == netpoll_wrapper_iface2)
-	{
-		if (len == (sizeof(idPacketHeader)+macAddrSize + ipAddrSize))
-		{
-			if (!memcmp(msg, idPacketHeader, sizeof(idPacketHeader)))
-			{
-				netpoll_wrapper_set_reply_addresses(s_pKgdboeNetpoll, msg + sizeof(idPacketHeader), *((int *)(msg + sizeof(idPacketHeader)+macAddrSize)));
-			}
-		}
-	}
-	else if (iface == netpoll_wrapper_iface1)
-	{
-		bool breakpointPending = false;
+	bool breakpointPending = false;
 
-		if (!kgdb_connected && (len != 1 || msg[0] == 3))
+	if (!kgdb_connected && (len != 1 || msg[0] == 3))
+		breakpointPending = true;
+
+	for (int i = 0; i < len; i++) 
+	{
+		if (msg[i] == 3)
 			breakpointPending = true;
 
-		for (int i = 0; i < len; i++) 
-		{
-			if (msg[i] == 3)
-				breakpointPending = true;
-
-			s_IncomingRingBuffer[s_IncomingRingBufferWritePosition++] = msg[i];
-			s_IncomingRingBufferWritePosition %= sizeof(s_IncomingRingBuffer);
-		}
-
-		if (breakpointPending && !s_StoppedInKgdb && netpoll_wrapper_reply_address_assigned(s_pKgdboeNetpoll))
-			kgdb_schedule_breakpoint();
+		s_IncomingRingBuffer[s_IncomingRingBufferWritePosition++] = msg[i];
+		s_IncomingRingBufferWritePosition %= sizeof(s_IncomingRingBuffer);
 	}
+
+	if (breakpointPending && !s_StoppedInKgdb)
+		kgdb_schedule_breakpoint();
 }
 
+static spinlock_t exception_lock;
 
 static void kgdboe_pre_exception(void)
 {
+	struct mutex *text_mutex = kallsyms_lookup_name("text_mutex");
+
+	if (mutex_is_locked(text_mutex))
+	{
+		asm("nop");
+	}
+
+	spin_lock(&exception_lock);
 	if (!kgdb_connected)
 		try_module_get(THIS_MODULE);
 
 	s_StoppedInKgdb = true;
-	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, true);
-	s_RoundupContext.RequestingCore = raw_smp_processor_id();
-	s_RoundupContext.RoundupPending = true;
 
-	while (s_RoundupContext.RoundupPending && !netpoll_wrapper_reply_address_assigned(s_pKgdboeNetpoll))
-	{
-		netpoll_wrapper_poll(s_pKgdboeNetpoll);
-	}
+	take_hooked_spinlocks();
+	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, true);
+
+	hold_irq_enabling();
 }
 
 static void kgdboe_post_exception(void)
 {
 	if (!kgdb_connected)
-	{
 		module_put(THIS_MODULE);
-		netpoll_wrapper_reset_reply_address(s_pKgdboeNetpoll);
-	}
 
 	s_StoppedInKgdb = false;
 	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, false);
+
+	enable_queued_irqs();
+	spin_unlock(&exception_lock);
 }
+
+volatile bool testReply = false;
 
 
 static int kgdboe_read_char(void)
 {
-	BUG_ON(!s_pKgdboeNetpoll);
+	save_hooked_spinlocks();
 
+	BUG_ON(!s_pKgdboeNetpoll);
+	
 	while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition)
 		netpoll_wrapper_poll(s_pKgdboeNetpoll);
 
 	char result = s_IncomingRingBuffer[s_IncomingRingBufferReadPosition++];
 	s_IncomingRingBufferReadPosition %= sizeof(s_IncomingRingBuffer);
+
+	if (testReply)
+	{
+		netpoll_wrapper_send_reply(s_pKgdboeNetpoll, &result, 1);
+	}
+
+	restore_hooked_spinlocks();
 	return result;
 }
 
@@ -113,8 +103,10 @@ static void kgdboe_flush(void)
 {
 	if (s_OutgoingBufferUsed) 
 	{
+		save_hooked_spinlocks();
 		netpoll_wrapper_send_reply(s_pKgdboeNetpoll, s_OutgoingBuffer, s_OutgoingBufferUsed);
 		s_OutgoingBufferUsed = 0;
+		restore_hooked_spinlocks();
 	}
 }
 
@@ -135,9 +127,13 @@ static struct kgdb_io kgdboe_io_ops = {
 	.post_exception = kgdboe_post_exception
 };
 
+void hook_netdev(struct net_device *pNetDev);
+
 int kgdboe_io_init(void)
 {
+	spin_lock_init(&exception_lock);
 	pkgdb_roundup_cpus = kallsyms_lookup_name("kgdb_roundup_cpus");
+	
 	if (!pkgdb_roundup_cpus)
 	{
 		printk(KERN_ERR "kgdboe: cannot find kgdb_roundup_cpus(). Aborting...\n");
@@ -147,6 +143,8 @@ int kgdboe_io_init(void)
 	s_pKgdboeNetpoll = netpoll_wrapper_create("eth0", 6443, 6444, NULL);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
+
+	hook_netdev(s_pKgdboeNetpoll->pDeviceWithHandler);
 
 	int err = kgdb_register_io_module(&kgdboe_io_ops);
 	if (err != 0)

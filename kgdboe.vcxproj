@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug (netbook)|Win32">
+      <Configuration>Debug (netbook)</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -23,6 +27,9 @@
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug (netbook)|Win32'">
+    <ConfigurationType>Makefile</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -58,11 +65,21 @@
     <ReferencePath />
     <LibraryPath />
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug (netbook)|Win32'">
+    <NMakeBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /build "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /rebuild "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /clean "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeCleanCommandLine>
+    <NMakeOutput>$(ProjectDir)kgdboe-Debug (netbook).vgdbsettings</NMakeOutput>
+    <NMakeIncludeSearchPath>$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0005\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0002\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>$(ProjectDir)\gcc_Debug (netbook).h;$(VISUALGDB_DIR)\gcc_compat.h;E:\KernelTools\common\kernel_compat.h;$(LOCALAPPDATA)\VisualGDB\AutoDownloadedSources\kubuntu13vm\kconfig.h\kconfig.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <NMakePreprocessorDefinitions>__VisualGDB_CFG_Debug__netbook_;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="kgdboe_main.c" />
     <ClCompile Include="kgdboe_io.c" />
+    <ClCompile Include="nethook.c" />
     <ClCompile Include="netpoll_wrapper.c" />
     <ClCompile Include="netpoll_wrapper.h" />
     <ClCompile Include="poll_copy.c" />
@@ -72,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kgdboe_io.h" />
+    <ClInclude Include="nethook.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
