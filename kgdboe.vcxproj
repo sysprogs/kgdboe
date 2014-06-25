@@ -84,6 +84,7 @@
     <ClCompile Include="netpoll_wrapper.c" />
     <ClCompile Include="netpoll_wrapper.h" />
     <ClCompile Include="poll_copy.c" />
+    <ClCompile Include="spinhook.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile" />
@@ -91,6 +92,7 @@
   <ItemGroup>
     <ClInclude Include="irqsync.h" />
     <ClInclude Include="kgdboe_io.h" />
+    <ClInclude Include="spinhook.h" />
     <ClInclude Include="nethook.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

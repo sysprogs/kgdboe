@@ -1,4 +1,7 @@
 #pragma once
+#include <linux/netdevice.h>
+
+void nethook_initialize(struct net_device *dev);
 
 void take_hooked_spinlocks();
 void save_hooked_spinlocks();
