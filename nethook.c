@@ -264,7 +264,7 @@ void nethook_netpoll_work_starting()
 	spinlock_hook_manager_save_and_reset_all_locks(nethook.spinhook);
 
 	nethook.saved_preempt = preempt_count();
-	preempt_count_set(nethook.saved_preempt | NMI_MASK);
+	preempt_count_set(nethook.saved_preempt | (1 << SOFTIRQ_SHIFT));
 }
 
 void nethook_netpoll_work_done()

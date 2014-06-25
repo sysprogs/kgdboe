@@ -5,6 +5,7 @@
 #include <linux/udp.h>
 #include <linux/kallsyms.h>
 #include <trace/events/net.h>
+#include <linux/rtnetlink.h>
 #include "tracewrapper.h"
 
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb);
@@ -80,7 +81,9 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	}
 #endif
 
+	rtnl_lock();
 	int err = netdev_rx_handler_register(pDevice, netpoll_wrapper_rx_handler, pResult);
+	rtnl_unlock();
 	if (err < 0)
 	{
 		printk(KERN_ERR "kgdboe: Failed to register rx handler for %s, code %d\n", pDeviceName, err);
@@ -120,7 +123,11 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 		if (pWrapper->netpoll_initialized)
 			netpoll_cleanup(&pWrapper->netpoll_obj);
 		if (pWrapper->pDeviceWithHandler)
+		{
+			rtnl_lock();
 			netdev_rx_handler_unregister(pWrapper->pDeviceWithHandler);
+			rtnl_unlock();
+		}
 		kfree(pWrapper);
 	}
 }

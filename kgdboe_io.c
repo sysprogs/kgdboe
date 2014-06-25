@@ -1,6 +1,7 @@
 #include <linux/kgdb.h>
 #include <linux/module.h>
 #include <linux/kallsyms.h>
+#include <linux/cpu.h>
 #include "kgdboe_io.h"
 #include "netpoll_wrapper.h"
 #include "nethook.h"
@@ -109,6 +110,13 @@ static struct kgdb_io kgdboe_io_ops = {
 	.post_exception = kgdboe_post_exception
 };
 
+void force_single_cpu_mode(void)
+{
+	printk(KERN_INFO "kgdboe: single-core mode enabled. Shutting down all cores except #0\n");
+	for (int i = 1; i < nr_cpu_ids; i++)
+		cpu_down(i);
+}
+
 int kgdboe_io_init(void)
 {
 	int err;
@@ -119,8 +127,12 @@ int kgdboe_io_init(void)
 	s_pKgdboeNetpoll = netpoll_wrapper_create("eth0", 6443, NULL);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
-
-	if (!nethook_initialize(s_pKgdboeNetpoll->pDeviceWithHandler))
+	
+	if (0)
+	{
+		force_single_cpu_mode();
+	}
+	else if (!nethook_initialize(s_pKgdboeNetpoll->pDeviceWithHandler))
 	{
 		printk(KERN_ERR "kgdboe: failed to guarantee cross-CPU network API synchronization. Aborting. Try enabling single-CPU mode.\n");
 		return -EINVAL;
