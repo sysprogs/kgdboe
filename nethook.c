@@ -9,8 +9,10 @@
 #include <asm/cacheflush.h>
 #include <linux/cpu.h>
 #include <linux/kallsyms.h>
+#include "irqsync.h"
+#include <linux/seqlock.h>
 
-#define DISABLE_SYNC_HOOKING
+//#define DISABLE_SYNC_HOOKING
 
 #ifdef DISABLE_SYNC_HOOKING
 void take_hooked_spinlocks() {}
@@ -31,7 +33,7 @@ void hook_netdev(struct net_device *pNetDev)
 
 #else
 
-#define SYNC_IRQ
+//#define SYNC_IRQ
 
 int hookedIrq;
 struct irq_desc *pHookedIrq;
@@ -53,7 +55,9 @@ struct hooked_spinlock
 	enum hooked_spinlock_state state;
 };
 
+#ifdef SYNC_IRQ
 struct hooked_spinlock hookedIrqLock;
+#endif
 
 spinlock_t timerLock;
 spinlock_t transmitLock;	//ndo_start_xmit
@@ -127,21 +131,15 @@ struct net_device_stats* ndo_get_stats_hook(struct net_device *dev)
 	return result;
 }
 
-bool hold_irq_enable, irq_enable_pending;
-void(*original_irq_unmask)(struct irq_data *data);
-
-void irq_unmask_hook(struct irq_data *data)
-{
-	if (hold_irq_enable)
-		irq_enable_pending = true;
-	else
-		original_irq_unmask(data);
-}
-
+struct irqsync_manager *irqsync;
 
 void hook_netdev(struct net_device *pNetDev)
 {
 	testModule = find_module("pcnet32");
+
+	seqlock_t *jiffies_lock = (seqlock_t *)kallsyms_lookup_name("jiffies_lock");
+
+	irqsync = irqsync_create();
 
 	spin_lock_init(&timerLock);
 	spin_lock_init(&transmitLock);
@@ -169,13 +167,17 @@ void hook_netdev(struct net_device *pNetDev)
 			continue;
 		if (within_module_core(pDesc->action->handler, testModule))
 		{
+			irqsync_add_managed_irq(irqsync, i, pDesc);
+
 			hookedIrq = i;
 			pHookedIrq = pDesc;
-			hookedIrqLock.pOriginalLock = &pDesc->lock;
-			original_irq_unmask = pDesc->irq_data.chip->irq_unmask;
-			pDesc->irq_data.chip->irq_unmask = irq_unmask_hook;
+			//hookedIrqLock.pOriginalLock = &pDesc->lock;
+			hook_spinlock(&pDesc->lock);
 		}
 	}
+
+	hook_spinlock(&jiffies_lock->lock);
+
 
 	struct napi_struct *napi;
 	list_for_each_entry(napi, &pNetDev->napi_list, dev_list)
@@ -185,6 +187,11 @@ void hook_netdev(struct net_device *pNetDev)
 
 	hook_spinlock(&timerLock);
 	hook_spinlock(&transmitLock);
+
+	for (int i = 0; i < pNetDev->num_tx_queues; i++)
+	{
+		hook_spinlock(&netdev_get_tx_queue(pNetDev, i)->_xmit_lock);
+	}
 
 	register_trace_timer_expire_entry(hook_timer_entry, NULL);
 	register_trace_timer_expire_exit(hook_timer_exit, NULL);
@@ -208,21 +215,23 @@ static bool try_take_irq_lock()
 
 void check_lock()
 {
+#ifdef SYNC_IRQ
 	if (spin_is_locked(hookedIrqLock.pOriginalLock))
 	{
 		asm("nop");
 	}
+#endif
 }
 
 void take_hooked_spinlocks()
 {
 	check_lock();
 
-#ifdef SYNC_IRQ
 	for (;;)
 	{
 		check_lock();
 
+#ifdef SYNC_IRQ
 		while (irqd_irq_inprogress(&pHookedIrq->irq_data))
 			cpu_relax();
 
@@ -230,6 +239,7 @@ void take_hooked_spinlocks()
 
 		if (!try_take_irq_lock())
 			continue;
+#endif
 
 		bool failed = false;
 
@@ -248,7 +258,9 @@ void take_hooked_spinlocks()
 
 		if (!failed)
 		{
+#ifdef SYNC_IRQ
 			hookedIrqLock.state = hooked_spinlock_taken;
+#endif
 			return;
 		}
 
@@ -264,7 +276,6 @@ void take_hooked_spinlocks()
 		cpu_relax();
 	}
 
-#endif
 }
 
 static bool s_SpinLocksSaved;
@@ -333,22 +344,18 @@ void restore_hooked_spinlocks()
 
 void hold_irq_enabling()
 {
-	hold_irq_enable = true;
+	//hold_irq_enable = true;
+	irqsync_suspend_irqs(irqsync);
 }
 
 void enable_queued_irqs()
 {
-	hold_irq_enable = false;
-	check_lock();
+	//hold_irq_enable = false;
+	//check_lock();
+	irqsync_resume_irqs(irqsync);
 }
 
 void nethook_service()
 {
-	if (irq_enable_pending && !hold_irq_enable)
-	{
-		disable_irq(hookedIrq);
-		enable_irq(hookedIrq);
-		irq_enable_pending = false;
-	}
 }
 #endif

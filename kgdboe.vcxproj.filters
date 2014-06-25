@@ -33,6 +33,9 @@
     <ClCompile Include="nethook.c">
       <Filter>Source files</Filter>
     </ClCompile>
+    <ClCompile Include="irqsync.c">
+      <Filter>Source files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile">
@@ -44,6 +47,9 @@
       <Filter>Header files</Filter>
     </ClInclude>
     <ClInclude Include="nethook.h">
+      <Filter>Header files</Filter>
+    </ClInclude>
+    <ClInclude Include="irqsync.h">
       <Filter>Header files</Filter>
     </ClInclude>
   </ItemGroup>

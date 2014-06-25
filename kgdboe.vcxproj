@@ -77,6 +77,7 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="irqsync.c" />
     <ClCompile Include="kgdboe_main.c" />
     <ClCompile Include="kgdboe_io.c" />
     <ClCompile Include="nethook.c" />
@@ -88,6 +89,7 @@
     <None Include="Makefile" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="irqsync.h" />
     <ClInclude Include="kgdboe_io.h" />
     <ClInclude Include="nethook.h" />
   </ItemGroup>

@@ -44,23 +44,15 @@ static spinlock_t exception_lock;
 
 static void kgdboe_pre_exception(void)
 {
-	struct mutex *text_mutex = kallsyms_lookup_name("text_mutex");
-
-	if (mutex_is_locked(text_mutex))
-	{
-		asm("nop");
-	}
-
 	spin_lock(&exception_lock);
 	if (!kgdb_connected)
 		try_module_get(THIS_MODULE);
 
 	s_StoppedInKgdb = true;
 
+	hold_irq_enabling();
 	take_hooked_spinlocks();
 	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, true);
-
-	hold_irq_enabling();
 }
 
 static void kgdboe_post_exception(void)
