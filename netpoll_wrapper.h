@@ -37,7 +37,7 @@ struct netpoll_wrapper
 	void(*zap_completion_queue)(void);
 #endif
 	
-	bool netpoll_initialized;
+	bool netpoll_initialized, tracepoint_registered;
 	bool drop_other_packets;
 	bool handle_arp;
 	struct queued_arp_reply pending_arp_replies[4];

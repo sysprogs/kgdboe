@@ -8,11 +8,6 @@
 
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb);
 
-#ifdef NETPOLL_RX_HOOK_SUPPORTED
-static void netpoll_wrapper_rx_hook1(struct netpoll *np, int port, char *msg, int len);
-static void netpoll_wrapper_rx_hook2(struct netpoll *np, int port, char *msg, int len);
-#endif
-
 static void hook_receive_skb(void *pContext, struct sk_buff *pSkb);
 
 struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, const char *pOptionalLocalIp)
@@ -93,6 +88,7 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	}
 
 	register_trace_netif_receive_skb(hook_receive_skb, pResult);
+	pResult->tracepoint_registered = true;
 
 	pResult->pDeviceWithHandler = pDevice;
 
@@ -100,10 +96,6 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	pResult->netpoll_obj.name = "kgdboe";
 	pResult->netpoll_obj.local_port = localPort;
 	memset(pResult->netpoll_obj.remote_mac, 0xFF, sizeof(pResult->netpoll_obj.remote_mac));
-
-#ifdef NETPOLL_RX_HOOK_SUPPORTED
-	pResult->netpoll_obj.rx_hook = netpoll_wrapper_rx_hook1;
-#endif
 
 	err = netpoll_setup(&pResult->netpoll_obj);
 	if (err < 0)
@@ -122,6 +114,8 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 {
 	if (pWrapper)
 	{
+		if (pWrapper->tracepoint_registered)
+			unregister_trace_netif_receive_skb(hook_receive_skb, pWrapper);
 		if (pWrapper->netpoll_initialized)
 			netpoll_cleanup(&pWrapper->netpoll_obj);
 		if (pWrapper->pDeviceWithHandler)
@@ -261,12 +255,6 @@ out:
 }
 
 
-/*
-	Based on __netpoll_rx() from netpoll.c in pre-3.15 kernels.
-	This method will be called by the network device to process each incoming packet.
-	On pre-3.15 kernels it won't be called when doing a netpoll poll. On 3.15+ where there is no
-	rx_hook anymore, all packets will go through here and we'll need to invoke the rx_hook manually.
-*/
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 {
 	struct netpoll_wrapper *pWrapper = (struct netpoll_wrapper *)(*pskb)->dev->rx_handler_data;
@@ -287,12 +275,6 @@ void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, const void *pD
 	BUG_ON(!pData);
 
 	netpoll_send_udp(&pWrapper->netpoll_obj, pData, dataSize);
-}
-
-void netpoll_wrapper_set_reply_addresses(struct netpoll_wrapper *pWrapper, const void *pMacAddress, int ipAddres)
-{
-	BUG_ON(!pWrapper);
-	BUG_ON(!pMacAddress);
 }
 
 static void netpoll_wrapper_send_arp_reply(struct netpoll_wrapper *pWrapper, struct queued_arp_reply *reply)
@@ -379,27 +361,3 @@ void netpoll_wrapper_set_callback(struct netpoll_wrapper *pWrapper, pnetpoll_wra
 	pWrapper->pReceiveHandler = pReceiveHandler;
 	pWrapper->pUserContext = pUserContext;
 }
-
-#ifdef NETPOLL_RX_HOOK_SUPPORTED
-static void netpoll_wrapper_rx_hook1(struct netpoll *np, int port, char *msg, int len)
-{
-	BUG_ON(!np);
-
-	struct netpoll_wrapper *pWrapper = container_of(np, struct netpoll_wrapper, netpoll_obj);
-	pWrapper->netpoll_obj.remote_port = port;
-
-	if (pWrapper->pReceiveHandler)
-		pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface1, port, msg, len);
-}
-
-static void netpoll_wrapper_rx_hook2(struct netpoll *np, int port, char *msg, int len)
-{
-	BUG_ON(!np);
-
-	struct netpoll_wrapper *pWrapper = container_of(np, struct netpoll_wrapper, netpoll_obj2);
-	pWrapper->netpoll_obj2.remote_port = port;
-
-	if (pWrapper->pReceiveHandler)
-		pWrapper->pReceiveHandler(pWrapper, netpoll_wrapper_iface2, port, msg, len);
-}
-#endif
