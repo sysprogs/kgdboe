@@ -4,7 +4,7 @@
 static void irqsync_timer_func(unsigned long ctx);
 #define IRQSYNC_TIMER_PERIOD (HZ / 100)
 
-struct irqsync_manager *irqsync_create()
+struct irqsync_manager *irqsync_create(void)
 {
 	struct irqsync_manager* result = (struct irqsync_manager *)kmalloc(sizeof(struct irqsync_manager), GFP_KERNEL);
 	if (!result)
@@ -23,12 +23,20 @@ static void irqsync_enable_all_irqs_locked(struct irqsync_manager *mgr);
 
 void irqsync_free(struct irqsync_manager *mgr)
 {
+	struct managed_irq *irq, *tmp;
+
 	BUG_ON(!mgr);
 	del_timer(&mgr->timer);
 	spin_lock(&mgr->lock);
 	if (mgr->irqs_disabled)
 		irqsync_enable_all_irqs_locked(mgr);
 	spin_unlock(&mgr->lock);
+
+	list_for_each_entry_safe(irq, tmp, &mgr->irqs, list)
+	{
+		kfree(irq);
+	}
+
 	kfree(mgr);
 }
 
@@ -45,21 +53,6 @@ bool irqsync_add_managed_irq(struct irqsync_manager *mgr, unsigned number, struc
 	list_add_tail(&result->list, &mgr->irqs);
 	spin_unlock(&mgr->lock);
 	return true;
-}
-
-void irqsync_clear_managed_irq_list(struct irqsync_manager *mgr)
-{
-	struct managed_irq *irq, *tmp;
-	spin_lock(&mgr->lock);
-	if (mgr->irqs_disabled)
-		irqsync_enable_all_irqs_locked(mgr);
-
-	list_for_each_entry_safe(irq, tmp, &mgr->irqs, list)
-	{
-		kfree(irq);
-	}
-
-	spin_unlock(&mgr->lock);
 }
 
 void irqsync_suspend_irqs(struct irqsync_manager *mgr)

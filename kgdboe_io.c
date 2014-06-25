@@ -16,13 +16,11 @@ static volatile int s_OutgoingBufferUsed;
 
 static bool s_StoppedInKgdb;
 
-static void(*pkgdb_roundup_cpus)(void);
-
 static void kgdboe_rx_handler(void *pContext, int port, char *msg, int len)
 {
-	BUG_ON(!s_pKgdboeNetpoll);
-
 	bool breakpointPending = false;
+
+	BUG_ON(!s_pKgdboeNetpoll);
 
 	if (!kgdb_connected && (len != 1 || msg[0] == 3))
 		breakpointPending = true;
@@ -50,8 +48,7 @@ static void kgdboe_pre_exception(void)
 
 	s_StoppedInKgdb = true;
 
-	hold_irq_enabling();
-	take_hooked_spinlocks();
+	nethook_take_relevant_resources();
 	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, true);
 }
 
@@ -63,31 +60,24 @@ static void kgdboe_post_exception(void)
 	s_StoppedInKgdb = false;
 	netpoll_wrapper_set_drop_flag(s_pKgdboeNetpoll, false);
 
-	enable_queued_irqs();
+	nethook_release_relevant_resources();
 	spin_unlock(&exception_lock);
 }
 
-volatile bool testReply = false;
-
-
 static int kgdboe_read_char(void)
 {
-	save_hooked_spinlocks();
+	char result;
+	nethook_netpoll_work_starting();
 
 	BUG_ON(!s_pKgdboeNetpoll);
 	
 	while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition)
 		netpoll_wrapper_poll(s_pKgdboeNetpoll);
 
-	char result = s_IncomingRingBuffer[s_IncomingRingBufferReadPosition++];
+	result = s_IncomingRingBuffer[s_IncomingRingBufferReadPosition++];
 	s_IncomingRingBufferReadPosition %= sizeof(s_IncomingRingBuffer);
 
-	if (testReply)
-	{
-		netpoll_wrapper_send_reply(s_pKgdboeNetpoll, &result, 1);
-	}
-
-	restore_hooked_spinlocks();
+	nethook_netpoll_work_done();
 	return result;
 }
 
@@ -95,10 +85,10 @@ static void kgdboe_flush(void)
 {
 	if (s_OutgoingBufferUsed) 
 	{
-		save_hooked_spinlocks();
+		nethook_netpoll_work_starting();
 		netpoll_wrapper_send_reply(s_pKgdboeNetpoll, s_OutgoingBuffer, s_OutgoingBufferUsed);
 		s_OutgoingBufferUsed = 0;
-		restore_hooked_spinlocks();
+		nethook_netpoll_work_done();
 	}
 }
 
@@ -119,26 +109,24 @@ static struct kgdb_io kgdboe_io_ops = {
 	.post_exception = kgdboe_post_exception
 };
 
-void hook_netdev(struct net_device *pNetDev);
-
 int kgdboe_io_init(void)
 {
-	spin_lock_init(&exception_lock);
-	pkgdb_roundup_cpus = kallsyms_lookup_name("kgdb_roundup_cpus");
-	
-	if (!pkgdb_roundup_cpus)
-	{
-		printk(KERN_ERR "kgdboe: cannot find kgdb_roundup_cpus(). Aborting...\n");
-		return -EINVAL;
-	}
+	int err;
+	u8 ipaddr[4];
 
-	s_pKgdboeNetpoll = netpoll_wrapper_create("eth0", 6443, 6444, NULL);
+	spin_lock_init(&exception_lock);
+
+	s_pKgdboeNetpoll = netpoll_wrapper_create("eth0", 6443, NULL);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
 
-	hook_netdev(s_pKgdboeNetpoll->pDeviceWithHandler);
+	if (!nethook_initialize(s_pKgdboeNetpoll->pDeviceWithHandler))
+	{
+		printk(KERN_ERR "kgdboe: failed to guarantee cross-CPU network API synchronization. Aborting. Try enabling single-CPU mode.\n");
+		return -EINVAL;
+	}
 
-	int err = kgdb_register_io_module(&kgdboe_io_ops);
+	err = kgdb_register_io_module(&kgdboe_io_ops);
 	if (err != 0)
 	{
 		netpoll_wrapper_free(s_pKgdboeNetpoll);
@@ -147,13 +135,18 @@ int kgdboe_io_init(void)
 	}
 
 	netpoll_wrapper_set_callback(s_pKgdboeNetpoll, kgdboe_rx_handler, NULL);
-	printk(KERN_INFO "kgdboe: Successfully initialized. Don't forget to run the flow control program on the other PC.\n");
+
+	memcpy(ipaddr, &ip_addr_as_int(s_pKgdboeNetpoll->netpoll_obj.local_ip), 4);
+	printk(KERN_INFO "kgdboe: Successfully initialized. Use the following gdb command to attach:\n");
+	printk(KERN_INFO "\ttarget remote udp:%d.%d.%d.%d:%d\n", ipaddr[0], ipaddr[1], ipaddr[2], ipaddr[3], s_pKgdboeNetpoll->netpoll_obj.local_port);
 
 	return 0;
 }
 
 void kgdboe_io_cleanup(void)
 {
+	kgdb_unregister_io_module(&kgdboe_io_ops);
 	netpoll_wrapper_free(s_pKgdboeNetpoll);
+	nethook_cleanup();
 	s_pKgdboeNetpoll = NULL;
 }

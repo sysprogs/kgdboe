@@ -43,13 +43,13 @@ struct netpoll_wrapper
 	struct queued_arp_reply pending_arp_replies[4];
 };
 
-struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, int localPort2, const char *pOptionalLocalIp);
+struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, const char *pOptionalLocalIp);
 void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper);
 void netpoll_wrapper_send_reply(struct netpoll_wrapper *pWrapper, const void *pData, int dataSize);
 void netpoll_wrapper_poll(struct netpoll_wrapper *pWrapper);
 void netpoll_wrapper_set_callback(struct netpoll_wrapper *pWrapper, pnetpoll_wrapper_rx_handler pReceiveHandler, void *pUserContext);
 
-static void netpoll_wrapper_set_drop_flag(struct netpoll_wrapper *pWrapper, bool flag)
+static inline void netpoll_wrapper_set_drop_flag(struct netpoll_wrapper *pWrapper, bool flag)
 {
 	BUG_ON(!pWrapper);
 	pWrapper->drop_other_packets = flag;

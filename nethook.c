@@ -1,182 +1,261 @@
 #include <linux/netdevice.h>
-#include <linux/radix-tree.h>
-#include <linux/irq.h>
-#include <linux/interrupt.h>
 #include <linux/module.h>
-#include <trace/events/timer.h>
 #include <linux/spinlock.h>
-#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
-#include <linux/cpu.h>
 #include <linux/kallsyms.h>
+#include "nethook.h"
 #include "irqsync.h"
 #include "spinhook.h"
+#include "timerhook.h"
+#include <linux/preempt.h>
 #include <linux/seqlock.h>
 
-//#define DISABLE_SYNC_HOOKING
-
-#ifdef DISABLE_SYNC_HOOKING
-void take_hooked_spinlocks() {}
-void save_hooked_spinlocks() {}
-void restore_hooked_spinlocks() {}
-void release_hooked_spinlocks() {}
-
-void hold_irq_enabling() {}
-void enable_queued_irqs() {}
-void nethook_service(){}
-void hook_netdev(struct net_device *pNetDev)
+struct nethook
 {
-	void(*pset_cpu_online)(int, bool) = kallsyms_lookup_name("set_cpu_online");
-	printk(KERN_INFO "kgdboe: single-core mode enabled. Shutting down all cores except #0\n");
-	for (int i = 1; i < nr_cpu_ids; i++)
-		cpu_down(i);
+	bool initialized;
+	int saved_preempt;
+	struct irqsync_manager *irqsync;
+	spinlock_t netdev_api_lock;
+	struct spinlock_hook_manager *spinhook;
+	struct timer_hook *timerhook;
+	struct net_device *hooked_device;
+};
+
+static struct nethook nethook;
+
+
+#define DECLARE_NET_API_HOOK(name, return_type, ...) \
+	return_type(*original_ ## name)(__VA_ARGS__);	\
+	\
+	return_type name ## _hook(__VA_ARGS__)	\
+{	\
+	return_type result;	\
+	spin_lock(&nethook.netdev_api_lock);	\
+	result = original_ ## name(__VA_ARGS__);	\
+	spin_unlock(&nethook.netdev_api_lock);	\
+	return result;	\
 }
 
-#else
+DECLARE_NET_API_HOOK(ndo_get_stats64, struct rtnl_link_stats64*, dev, storage)
+DECLARE_NET_API_HOOK(ndo_get_stats, struct net_device_stats*, dev)
 
-struct module *testModule;
-
-#ifdef SYNC_IRQ
-struct hooked_spinlock hookedIrqLock;
-#endif
-
-spinlock_t timerLock;
-spinlock_t transmitLock;	//ndo_start_xmit
-
-static notrace void hook_timer_entry(void *v, struct timer_list *timer)
+bool nethook_initialize(struct net_device *dev)
 {
-	if (within_module_core(timer->function, testModule))
-		spin_lock(&timerLock);
-}
-
-static notrace void hook_timer_exit(void *v, struct timer_list *timer)
-{
-	if (within_module_core(timer->function, testModule))
-		spin_unlock(&timerLock);
-}
-
-
-struct rtnl_link_stats64* (*original_ndo_get_stats64)(struct net_device *dev, struct rtnl_link_stats64 *storage);
-struct net_device_stats* (*original_ndo_get_stats)(struct net_device *dev);
-
-struct rtnl_link_stats64* ndo_get_stats64_hook(struct net_device *dev, struct rtnl_link_stats64 *storage)
-{
-	spin_lock(&transmitLock);
-	struct rtnl_link_stats64* result = original_ndo_get_stats64(dev, storage);
-	spin_unlock(&transmitLock);
-	return result;
-}
-
-struct net_device_stats* ndo_get_stats_hook(struct net_device *dev)
-{
-	spin_lock(&transmitLock);
-	struct net_device_stats* result = original_ndo_get_stats(dev);
-	spin_unlock(&transmitLock);
-	return result;
-}
-
-struct irqsync_manager *irqsync;
-struct spinlock_hook_manager *spinhook;
-
-void hook_netdev(struct net_device *pNetDev)
-{
-	testModule = find_module("pcnet32");
-	
+	struct module *owner_module;
 	seqlock_t *jiffies_lock = (seqlock_t *)kallsyms_lookup_name("jiffies_lock");
+	int err;
+	int i;
+	struct napi_struct *napi;
 
-	irqsync = irqsync_create();
-	spinhook = spinlock_hook_manager_create();
+	if (nethook.initialized)
+		return false;
+	memset(&nethook, 0, sizeof(nethook));
 
-	spin_lock_init(&timerLock);
-	spin_lock_init(&transmitLock);
-
-	original_ndo_get_stats = pNetDev->netdev_ops->ndo_get_stats;
-	original_ndo_get_stats64 = pNetDev->netdev_ops->ndo_get_stats64;
-	
-	set_memory_rw(((unsigned)pNetDev->netdev_ops >> PAGE_SHIFT) << PAGE_SHIFT, 2);
-
-	*((void **)&pNetDev->netdev_ops->ndo_get_stats) = ndo_get_stats_hook;
-	//*((void **)&pNetDev->netdev_ops->ndo_get_stats64) = ndo_get_stats64_hook;
-
-	//set pNetDev->netdev_ops->ndo_start_xmit = ndo_start_xmit_hook
-	//set pNetDev->netdev_ops->ndo_get_stats = ndo_get_stats_hook
-	//set pNetDev->netdev_ops->ndo_get_stats64 = ndo_get_stats64_hook
-	
-	asm("nop");
-
-	for (int i = 0; i < nr_irqs; i++)
+	BUG_ON(!dev);
+	printk(KERN_INFO "kgdboe: Trying to synchronize calls to %s between multiple CPU cores...\n", dev->name);
+	if (!dev->netdev_ops || !dev->netdev_ops->ndo_start_xmit)
 	{
-		struct irq_desc *pDesc = irq_to_desc(i);
-		if (!pDesc || !pDesc->action)
+		printk(KERN_ERR "kgdboe: ndo_start_xmit not defined. Cannot determine which module owns %s\n", dev->name);
+		return false;
+	}
+
+	owner_module = __module_address((unsigned long)dev->netdev_ops->ndo_start_xmit);
+	if (!owner_module)
+	{
+		printk(KERN_ERR "kgdboe: cannot find the module owning %s: 0x%p does not belong to any module.\n", dev->name, dev->netdev_ops->ndo_start_xmit);
+		return false;
+	}
+
+	printk("kgdboe: found owner module for %s: %s\n", dev->name, owner_module->name);
+	
+	nethook.initialized = true;
+	nethook.spinhook = spinlock_hook_manager_create();
+	if (!nethook.spinhook)
+	{
+		printk(KERN_ERR "kgdboe: cannot create spinlock hook manager. Aborting.\n");
+		nethook_cleanup();
+		return false;
+	}
+
+	nethook.irqsync = irqsync_create();
+	if (!nethook.irqsync)
+	{
+		printk(KERN_ERR "kgdboe: create IRQ synchronization manager. Aborting.\n");
+		nethook_cleanup();
+		return false;
+	}
+
+	nethook.timerhook = timerhook_create(owner_module);
+	if (!nethook.timerhook)
+	{
+		printk(KERN_ERR "kgdboe: create timer hook. Aborting.\n");
+		nethook_cleanup();
+		return false;
+	}
+
+	spin_lock_init(&nethook.netdev_api_lock);
+
+	err = set_memory_rw(((unsigned long)dev->netdev_ops >> PAGE_SHIFT) << PAGE_SHIFT, 2);
+	if (err)
+	{
+		printk(KERN_ERR "Cannot change memory protection attributes of netdev_ops for %s. Aborting.", dev->name);
+		nethook_cleanup();
+		return false;
+	}
+#define HOOK_NET_API_FUNC(name) \
+	if (dev->netdev_ops->name) \
+	{	\
+		original_ ## name = dev->netdev_ops->name;	\
+		*((void **)&dev->netdev_ops->name) = name ## _hook;	\
+	} \
+	else \
+		original_ ## name = NULL;
+
+	HOOK_NET_API_FUNC(ndo_get_stats);
+	HOOK_NET_API_FUNC(ndo_get_stats64);
+
+#undef HOOK_NET_API_FUNC
+
+	nethook.hooked_device = dev;
+
+	for (i = 0; i < nr_irqs; i++)
+	{
+		struct irq_desc *desc = irq_to_desc(i);
+		if (!desc || !desc->action)
 			continue;
-		if (within_module_core(pDesc->action->handler, testModule))
+		if (within_module_core((unsigned long)desc->action->handler, owner_module))
 		{
-			irqsync_add_managed_irq(irqsync, i, pDesc);
-			hook_spinlock(spinhook, &pDesc->lock);
+			printk(KERN_INFO "kgdboe: IRQ %d appears to be managed by %s and will be disabled while debugger is stopped.", i, owner_module->name);
+			if (!irqsync_add_managed_irq(nethook.irqsync, i, desc))
+			{
+				printk(KERN_ERR "kgdboe: failed to take control over IRQ %d. Aborting\n", i);
+				nethook_cleanup();
+				return false;
+			}
+
+			if (!hook_spinlock(nethook.spinhook, &desc->lock))
+			{
+				printk(KERN_ERR "kgdboe: failed to hook spinlock of IRQ %d. Aborting\n", i);
+				nethook_cleanup();
+				return false;
+			}
 		}
 	}
 
-	hook_spinlock(spinhook, &jiffies_lock->lock);
-
-
-	struct napi_struct *napi;
-	list_for_each_entry(napi, &pNetDev->napi_list, dev_list)
+	list_for_each_entry(napi, &dev->napi_list, dev_list)
 	{
-		hook_spinlock(spinhook, &napi->poll_lock);
+		if (!hook_spinlock(nethook.spinhook, &napi->poll_lock))
+		{
+			printk(KERN_ERR "kgdboe: failed to hook spinlock of NAPI %p. Aborting\n", napi);
+			nethook_cleanup();
+			return false;
+		}
 	}
 
-	hook_spinlock(spinhook, &timerLock);
-	hook_spinlock(spinhook, &transmitLock);
-
-	for (int i = 0; i < pNetDev->num_tx_queues; i++)
+	if (!hook_spinlock(nethook.spinhook, timerhook_get_spinlock(nethook.timerhook)))
 	{
-		hook_spinlock(spinhook, &netdev_get_tx_queue(pNetDev, i)->_xmit_lock);
+		printk(KERN_ERR "kgdboe: failed to %s timer lock. Aborting\n", owner_module->name);
+		nethook_cleanup();
+		return false;
 	}
 
-	register_trace_timer_expire_entry(hook_timer_entry, NULL);
-	register_trace_timer_expire_exit(hook_timer_exit, NULL);
+	if (!hook_spinlock(nethook.spinhook, &nethook.netdev_api_lock))
+	{
+		printk(KERN_ERR "kgdboe: failed to hook %s API lock. Aborting\n", dev->name);
+		nethook_cleanup();
+		return false;
+	}
 
-//	register_trace_irq_handler_entry(hook_irq_enter, NULL);
-//	register_trace_irq_handler_exit(hook_irq_exit, NULL);
+	for (i = 0; i < dev->num_tx_queues; i++)
+	{
+		printk(KERN_INFO "kgdboe: hooking TX queue #%d of %s...\n", i, dev->name);
+		if (!hook_spinlock(nethook.spinhook, &netdev_get_tx_queue(dev, i)->_xmit_lock))
+		{
+			printk(KERN_ERR "kgdboe: failed to hook TX queue #%d of %s. Aborting\n", i, dev->name);
+			nethook_cleanup();
+			return false;
+		}
+	}
+
+	if (jiffies_lock)
+	{
+		if (!hook_spinlock(nethook.spinhook, &jiffies_lock->lock))
+		{
+			printk(KERN_ERR "kgdboe: failed to hook jiffies_lock. Aborting\n");
+			nethook_cleanup();
+			return false;
+		}
+	}
+	else
+		printk(KERN_WARNING "kgdboe: cannot find and hook jiffies_lock. Your session will hang if a breakpoint coincides with jiffies updating.\n");
+
+	return true;
 }
 
-#include <linux/preempt.h>
-int saved_preempt;
-
-void take_hooked_spinlocks()
+void nethook_cleanup()
 {
-	spinlock_hook_manager_take_all_locks(spinhook);
+	if (!nethook.initialized)
+		return;
+
+	nethook.initialized = false;
+
+	if (nethook.hooked_device)
+	{
+		if (original_ndo_get_stats)
+#define UNHOOK_NET_API_FUNC(name) \
+		if (original_ ## name) \
+		{	\
+		*((void **)&nethook.hooked_device->netdev_ops->name) = original_ ## name;	\
+		}
+
+		UNHOOK_NET_API_FUNC(ndo_get_stats);
+		UNHOOK_NET_API_FUNC(ndo_get_stats64);
+
+#undef UNHOOK_NET_API_FUNC
+	}
+
+	if (nethook.timerhook)
+		timerhook_free(nethook.timerhook);
+
+	if (nethook.irqsync)
+		irqsync_free(nethook.irqsync);
+
+	if (nethook.spinhook)
+		spinlock_hook_manager_free(nethook.spinhook);
 }
 
-void save_hooked_spinlocks()
+void nethook_take_relevant_resources()
 {
-	spinlock_hook_manager_save_and_reset_all_locks(spinhook);
+	if (!nethook.initialized)
+		return;
+	irqsync_suspend_irqs(nethook.irqsync);
+	spinlock_hook_manager_take_all_locks(nethook.spinhook);
+}
 
-	saved_preempt = preempt_count();
+void nethook_release_relevant_resources()
+{
+	if (!nethook.initialized)
+		return;
+
+	irqsync_resume_irqs(nethook.irqsync);
+}
+
+void nethook_netpoll_work_starting()
+{
+	if (!nethook.initialized)
+		return;
+
+	spinlock_hook_manager_save_and_reset_all_locks(nethook.spinhook);
+
+	nethook.saved_preempt = preempt_count();
 	preempt_count() |= NMI_MASK;
 }
 
-
-void restore_hooked_spinlocks()
+void nethook_netpoll_work_done()
 {
-	preempt_count() = saved_preempt;
-	spinlock_hook_manager_restore_all_locks(spinhook);
-}
+	if (!nethook.initialized)
+		return;
 
-void hold_irq_enabling()
-{
-	//hold_irq_enable = true;
-	irqsync_suspend_irqs(irqsync);
+	preempt_count() = nethook.saved_preempt;
+	spinlock_hook_manager_restore_all_locks(nethook.spinhook);
 }
-
-void enable_queued_irqs()
-{
-	//hold_irq_enable = false;
-	//check_lock();
-	irqsync_resume_irqs(irqsync);
-}
-
-void nethook_service()
-{
-}
-#endif

@@ -21,11 +21,10 @@ struct irqsync_manager
 	bool suspend_active;
 };
 
-struct irqsync_manager *irqsync_create();
+struct irqsync_manager *irqsync_create(void);
 void irqsync_free(struct irqsync_manager *mgr);
 
 bool irqsync_add_managed_irq(struct irqsync_manager *mgr, unsigned number, struct irq_desc *irq);
-void irqsync_clear_managed_irq_list(struct irqsync_manager *mgr);
 
 void irqsync_suspend_irqs(struct irqsync_manager *mgr);
 void irqsync_resume_irqs(struct irqsync_manager *mgr);

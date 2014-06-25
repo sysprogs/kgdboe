@@ -15,7 +15,7 @@ static void netpoll_wrapper_rx_hook2(struct netpoll *np, int port, char *msg, in
 
 static void hook_receive_skb(void *pContext, struct sk_buff *pSkb);
 
-struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, int localPort2, const char *pOptionalLocalIp)
+struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, const char *pOptionalLocalIp)
 {
 	if (!pDeviceName || !localPort)
 	{

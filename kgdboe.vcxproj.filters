@@ -39,6 +39,9 @@
     <ClCompile Include="spinhook.c">
       <Filter>Source files</Filter>
     </ClCompile>
+    <ClCompile Include="timerhook.c">
+      <Filter>Source files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile">
@@ -56,6 +59,9 @@
       <Filter>Header files</Filter>
     </ClInclude>
     <ClInclude Include="spinhook.h">
+      <Filter>Header files</Filter>
+    </ClInclude>
+    <ClInclude Include="timerhook.h">
       <Filter>Header files</Filter>
     </ClInclude>
   </ItemGroup>
