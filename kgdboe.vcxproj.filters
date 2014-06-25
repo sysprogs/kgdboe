@@ -64,5 +64,8 @@
     <ClInclude Include="timerhook.h">
       <Filter>Header files</Filter>
     </ClInclude>
+    <ClInclude Include="tracewrapper.h">
+      <Filter>Header files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

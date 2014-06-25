@@ -22,7 +22,7 @@ struct spinlock_hook_manager
 	enum hooked_spinlock_state global_state;
 };
 
-struct spinlock_hook_manager *spinlock_hook_manager_create();
+struct spinlock_hook_manager *spinlock_hook_manager_create(void);
 void spinlock_hook_manager_free(struct spinlock_hook_manager *mgr);
 
 //Not thread-safe. Should be called after initialization and before any calls to xxx_all_locks()

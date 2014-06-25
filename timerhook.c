@@ -2,6 +2,7 @@
 #include <linux/atomic.h>
 #include <linux/netdevice.h>
 #include <trace/events/timer.h>
+#include "tracewrapper.h"
 
 static atomic_t timer_hook_installed;
 
@@ -30,8 +31,8 @@ struct timer_hook *timerhook_create(struct module *moduleToHook)
 
 	if (atomic_inc_return(&timer_hook_installed) == 1)
 	{
-		register_trace_timer_expire_entry(hook_timer_entry, hook);
-		register_trace_timer_expire_exit(hook_timer_exit, hook);
+		register_tracepoint_wrapper(timer_expire_entry, hook_timer_entry, hook);
+		register_tracepoint_wrapper(timer_expire_exit, hook_timer_exit, hook);
 	}
 
 	return hook;
@@ -44,8 +45,8 @@ void timerhook_free(struct timer_hook *hook)
 
 	if (!atomic_dec_return(&timer_hook_installed))
 	{
-		unregister_trace_timer_expire_entry(hook_timer_entry, hook);
-		unregister_trace_timer_expire_exit(hook_timer_exit, hook);
+		unregister_tracepoint_wrapper(timer_expire_entry, hook_timer_entry, hook);
+		unregister_tracepoint_wrapper(timer_expire_exit, hook_timer_exit, hook);
 	}
 
 	kfree(hook);

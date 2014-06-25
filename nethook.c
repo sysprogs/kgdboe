@@ -9,6 +9,7 @@
 #include "timerhook.h"
 #include <linux/preempt.h>
 #include <linux/seqlock.h>
+#include <linux/version.h>
 
 struct nethook
 {
@@ -23,21 +24,32 @@ struct nethook
 
 static struct nethook nethook;
 
-
-#define DECLARE_NET_API_HOOK(name, return_type, ...) \
-	return_type(*original_ ## name)(__VA_ARGS__);	\
+#define DECLARE_NET_API_HOOK1(name, return_type, type1, arg1) \
+	return_type(*original_ ## name)(type1 arg1);	\
 	\
-	return_type name ## _hook(__VA_ARGS__)	\
+	return_type name ## _hook(type1 arg1)	\
 {	\
 	return_type result;	\
 	spin_lock(&nethook.netdev_api_lock);	\
-	result = original_ ## name(__VA_ARGS__);	\
+	result = original_ ## name(arg1);	\
 	spin_unlock(&nethook.netdev_api_lock);	\
 	return result;	\
 }
 
-DECLARE_NET_API_HOOK(ndo_get_stats64, struct rtnl_link_stats64*, dev, storage)
-DECLARE_NET_API_HOOK(ndo_get_stats, struct net_device_stats*, dev)
+#define DECLARE_NET_API_HOOK2(name, return_type, type1, arg1, type2, arg2) \
+	return_type(*original_ ## name)(type1 arg1, type2 arg2);	\
+	\
+	return_type name ## _hook(type1 arg1, type2 arg2)	\
+{	\
+	return_type result;	\
+	spin_lock(&nethook.netdev_api_lock);	\
+	result = original_ ## name(arg1, arg2);	\
+	spin_unlock(&nethook.netdev_api_lock);	\
+	return result;	\
+}
+
+DECLARE_NET_API_HOOK2(ndo_get_stats64, struct rtnl_link_stats64*, struct net_device *, dev, struct rtnl_link_stats64 *, storage)
+DECLARE_NET_API_HOOK1(ndo_get_stats, struct net_device_stats*, struct net_device *, dev)
 
 bool nethook_initialize(struct net_device *dev)
 {
@@ -240,6 +252,10 @@ void nethook_release_relevant_resources()
 	irqsync_resume_irqs(nethook.irqsync);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+#define preempt_count_set(val) preempt_count() = val
+#endif
+
 void nethook_netpoll_work_starting()
 {
 	if (!nethook.initialized)
@@ -248,7 +264,7 @@ void nethook_netpoll_work_starting()
 	spinlock_hook_manager_save_and_reset_all_locks(nethook.spinhook);
 
 	nethook.saved_preempt = preempt_count();
-	preempt_count() |= NMI_MASK;
+	preempt_count_set(nethook.saved_preempt | NMI_MASK);
 }
 
 void nethook_netpoll_work_done()
@@ -256,6 +272,6 @@ void nethook_netpoll_work_done()
 	if (!nethook.initialized)
 		return;
 
-	preempt_count() = nethook.saved_preempt;
+	preempt_count_set(nethook.saved_preempt);
 	spinlock_hook_manager_restore_all_locks(nethook.spinhook);
 }

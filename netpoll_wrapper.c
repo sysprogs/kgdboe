@@ -5,6 +5,7 @@
 #include <linux/udp.h>
 #include <linux/kallsyms.h>
 #include <trace/events/net.h>
+#include "tracewrapper.h"
 
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb);
 
@@ -87,7 +88,7 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 		return NULL;
 	}
 
-	register_trace_netif_receive_skb(hook_receive_skb, pResult);
+	register_tracepoint_wrapper(netif_receive_skb, hook_receive_skb, pResult);
 	pResult->tracepoint_registered = true;
 
 	pResult->pDeviceWithHandler = pDevice;
@@ -115,7 +116,7 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 	if (pWrapper)
 	{
 		if (pWrapper->tracepoint_registered)
-			unregister_trace_netif_receive_skb(hook_receive_skb, pWrapper);
+			unregister_tracepoint_wrapper(netif_receive_skb, hook_receive_skb, pWrapper);
 		if (pWrapper->netpoll_initialized)
 			netpoll_cleanup(&pWrapper->netpoll_obj);
 		if (pWrapper->pDeviceWithHandler)
