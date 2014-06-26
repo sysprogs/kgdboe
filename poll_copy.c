@@ -3,6 +3,11 @@
 #include <linux/netpoll.h>
 #include "netpoll_wrapper.h"
 
+/*
+	This file contains copies of netpoll_poll_dev() and all related functions that are no longer usable
+	in kernel 3.15.
+*/
+
 #ifndef NETPOLL_POLL_DEV_USABLE
 
 static int poll_one_napi(struct napi_struct *napi, int budget)

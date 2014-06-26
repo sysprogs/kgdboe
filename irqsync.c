@@ -1,6 +1,17 @@
 #include "irqsync.h"
 #include <linux/slab.h>
 
+/*
+	This file contains the code that disables the IRQ used by the network card for the duration of using it from kgdb via the netpoll API.
+	This is needed on the multi-core systems because the network driver may try to disable/enable the IRQ around the netpoll call and actually 
+	enabling it would need some internal locks of the interrupt controller driver that may be held by other cores. As IRQ disabling in
+	Linux is recursive, once we disable the IRQ, enabling and disabling it from the network card driver will just keep it disabled without
+	invoking any dangerous code from the APIC.
+
+	Note that we cannot enable the IRQ immediately when done talking to the driver as the other cores (potentially holding APIC locks) are
+	still active. For that reason we use a timer to enable the IRQ later once the normal execution is resumed.
+*/
+
 static void irqsync_timer_func(unsigned long ctx);
 #define IRQSYNC_TIMER_PERIOD (HZ / 100)
 

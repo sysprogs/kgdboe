@@ -4,6 +4,20 @@
 #include <trace/events/timer.h>
 #include "tracewrapper.h"
 
+/*
+	This file provides the functionality allows putting a spinlock around timer functions in a given module.
+	It is used to ensure that no timer registered by the network driver is running on another CPU when kgdb
+	is stopping all CPUs except the one with an exception.
+
+	Some network drivers (like pcnet32) define timers that can take internal spinlocks required to access the device.
+	If a core hits an exception while another core is executing such a timer (and owns the spinlock), kgdb will deadlock
+	as it won't be able to access the network card. Putting a spinlock around those timers and taking it before
+	disabling other cores solves this problem.
+
+	Note that this code relies on assumption that the timer function is defined in the same module that registered
+	the network device. If this assumption is broken, this code won't be able to catch the timer!
+*/
+
 static atomic_t timer_hook_installed;
 
 static notrace void hook_timer_entry(void *v, struct timer_list *timer)

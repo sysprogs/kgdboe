@@ -159,6 +159,13 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 
 void kgdboe_io_cleanup(void)
 {
+	/*
+		We don't check for race conditions between running code by other cores and unloading the module!
+		There is always a small chance that unloading this module would cause a kernel panic because
+		another core is executing a function hooked by us. As normally you don't need to load/unload this
+		module all the time (just execute the 'detach' command in GDB and connect back when ready), we
+		don't check for it here.
+	*/
 	kgdb_unregister_io_module(&kgdboe_io_ops);
 	netpoll_wrapper_free(s_pKgdboeNetpoll);
 	nethook_cleanup();

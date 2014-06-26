@@ -8,6 +8,16 @@
 #include <linux/rtnetlink.h>
 #include "tracewrapper.h"
 
+/*
+	This file contains a wrapper around the netpoll API that encapsulates the following tasks:
+		* Replying to ARP messages while the kernel is stopped (removed from kernel 3.15)
+		* Filtering incoming packets and decoding UDP headers
+		* Getting MAC address and IP address of the remote host
+
+	kgdboe does NOT use the rx_hook API from netpoll as it has been removed in kernel 3.15 and
+	was not fully usable before (e.g. did not provide a possibility to record remote MAC address).
+*/
+
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb);
 
 static void hook_receive_skb(void *pContext, struct sk_buff *pSkb);
@@ -137,6 +147,12 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 }
 
 #include <linux/module.h>
+/*
+	In case of problems with ARP you can enable this setting and send gdb UDP packets to 255.255.255.255:<port>.
+	Note that ALL machines in your network will receive them, so use different ports if you have more than 1 machine.
+	You will also need to write a small tool that will forward the repiles back to GDB (it will ignore packets coming
+	from the actual remote IP).
+*/
 static int support_broadcast_packets = 0;
 module_param(support_broadcast_packets, int, 0664);
 
@@ -178,7 +194,7 @@ static void netpoll_wrapper_handle_arp(struct netpoll_wrapper *pWrapper, struct 
 		return;
 
 	if (tip != ip_addr_as_int(pWrapper->netpoll_obj.local_ip))
-		return;	//This ARP request is not for our IP
+		return;	//This ARP request is not for our IP address
 
 	for (int i = 0; i < ARRAY_SIZE(pWrapper->pending_arp_replies); i++)
 	{
@@ -193,6 +209,9 @@ static void netpoll_wrapper_handle_arp(struct netpoll_wrapper *pWrapper, struct 
 	}
 }
 
+//We need this function in addition to netpoll_wrapper_rx_handler() because pre-3.15 kernel versions 
+//will not call the rx handler for the packets matching the IP/port of our netpoll objects (expecting them
+//to be handled in rx_hook that we don't use because it provides no way of reading the MAC address).
 static void hook_receive_skb(void *pContext, struct sk_buff *skb)
 {
 	int proto, len, ulen;
@@ -268,7 +287,10 @@ out:
 	return;
 }
 
-
+//We need this in addition to hook_receive_skb() because not dropping a packet
+//while stopped in gdb may invoke some processing functions from the network stack that
+//would like to take resources owned by other cores (that are now stopped).
+//We don't want to guess and pre-acquire those resources, so we just drop all packets while stopped in kgdb.
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 {
 	struct netpoll_wrapper *pWrapper = (struct netpoll_wrapper *)(*pskb)->dev->rx_handler_data;

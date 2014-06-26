@@ -40,6 +40,9 @@ struct netpoll_wrapper
 	bool netpoll_initialized, tracepoint_registered;
 	bool drop_other_packets;
 	bool handle_arp;
+	//Theoretically this should be a queue with dynamic size as we don't want to drop ARP requests, as otherwise someone
+	//can execute a DoS attack by flooding us with fake ARP requests, but we don't bother with this assuming that kernel
+	//debugging over network is usually done in a controlled environment.
 	struct queued_arp_reply pending_arp_replies[4];
 };
 

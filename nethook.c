@@ -11,6 +11,25 @@
 #include <linux/seqlock.h>
 #include <linux/version.h>
 
+/*
+	This file is the central place for hooking a network card driver to ensure that no other cores are executing
+	any of its code. Note that this is only needed when debugging a system with multiple logical CPUs (and they were
+	not disabled dynamically when starting debugging).
+
+	We ensure that the network driver invoked by the current core won't need any resources owned by the other cores
+	(that are stopped by kgdb) using the following techniques:
+		1. Disabling the network card IRQ. This ensures that a driver calling enable_irq() won't hang waiting for an internal APIC lock.
+		2. Putting a spinlock around NAPI functions provided by the driver that may take some internal locks (currently ndo_get_stats).
+		3. Putting a spinlock around the timers registered by the network card driver.
+		4. Ensuring that no other core owns the jiffies_lock (that is used by some network-related code to manage timestamps)
+		5. Setting a SOFTIRQ_MASK bit in preemption mask so that the network driver code will think we're handling an interrupt and
+		   won't try anything that requires locks held by other cores (like waking up softirqd).
+
+	The combination of techniques used here is fairly reliable (tested on 20K+ breakpoint iterations), but may be insufficient for
+	some network card drivers that were not explicitly tested with it. Use with caution and prefer the forced single-CPU mode unless
+	you absolutely need SMP during debugging.
+*/
+
 struct nethook
 {
 	bool initialized;
