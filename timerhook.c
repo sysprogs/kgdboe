@@ -8,21 +8,22 @@ static atomic_t timer_hook_installed;
 
 static notrace void hook_timer_entry(void *v, struct timer_list *timer)
 {
-	if (within_module_core(timer->function, ((struct timer_hook *)v)->module))
+	if (within_module_core((unsigned long)timer->function, ((struct timer_hook *)v)->module))
 		spin_lock(&((struct timer_hook *)v)->lock);
 }
 
 static notrace void hook_timer_exit(void *v, struct timer_list *timer)
 {
-	if (within_module_core(timer->function, ((struct timer_hook *)v)->module))
+	if (within_module_core((unsigned long)timer->function, ((struct timer_hook *)v)->module))
 		spin_unlock(&((struct timer_hook *)v)->lock);
 }
 
 struct timer_hook *timerhook_create(struct module *moduleToHook)
 {
+	struct timer_hook *hook;
 	BUG_ON(!moduleToHook);
 
-	struct timer_hook *hook = (struct timer_hook *)kmalloc(sizeof(struct timer_hook), GFP_KERNEL);
+	hook = (struct timer_hook *)kmalloc(sizeof(struct timer_hook), GFP_KERNEL);
 	if (!hook)
 		return NULL;
 

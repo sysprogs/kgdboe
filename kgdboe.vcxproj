@@ -9,6 +9,14 @@
       <Configuration>Debug_3_15</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_fedora64|Win32">
+      <Configuration>Debug_fedora64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_linuxhdd|Win32">
+      <Configuration>Debug_linuxhdd</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -36,6 +44,12 @@
     <ConfigurationType>Makefile</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug_3_15|Win32'">
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug_linuxhdd|Win32'">
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug_fedora64|Win32'">
     <ConfigurationType>Makefile</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -89,6 +103,24 @@
     <NMakeIncludeSearchPath>$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0005\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0002\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>$(ProjectDir)\gcc_Debug_3_15.h;$(VISUALGDB_DIR)\gcc_compat.h;E:\KernelTools\common\kernel_compat.h;$(LOCALAPPDATA)\VisualGDB\AutoDownloadedSources\kubuntu13vm\kconfig.h\kconfig.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
     <NMakePreprocessorDefinitions>__VisualGDB_CFG_Debug_3_15;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_linuxhdd|Win32'">
+    <NMakeBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /build "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /rebuild "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /clean "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeCleanCommandLine>
+    <NMakeOutput>$(ProjectDir)kgdboe-Debug_linuxhdd.vgdbsettings</NMakeOutput>
+    <NMakeIncludeSearchPath>$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0005\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0002\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>$(ProjectDir)\gcc_Debug_linuxhdd.h;$(VISUALGDB_DIR)\gcc_compat.h;E:\KernelTools\common\kernel_compat.h;$(LOCALAPPDATA)\VisualGDB\AutoDownloadedSources\kubuntu13vm\kconfig.h\kconfig.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <NMakePreprocessorDefinitions>__VisualGDB_CFG_Debug_linuxhdd;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_fedora64|Win32'">
+    <NMakeBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /build "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /rebuild "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>"$(VISUALGDB_DIR)\VisualGDB.exe" /clean "$(ProjectPath)" "/solution:$(SolutionPath)" "/config:$(Configuration)" "/platform:$(Platform)"</NMakeCleanCommandLine>
+    <NMakeOutput>$(ProjectDir)kgdboe-Debug_fedora64.vgdbsettings</NMakeOutput>
+    <NMakeIncludeSearchPath>$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0003\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0004\include\generated\uapi;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0005\include;$(LOCALAPPDATA)\VisualGDB\RemoteSourceCache\kubuntu13vm\0002\include;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes>$(ProjectDir)\gcc_Debug_fedora64.h;$(VISUALGDB_DIR)\gcc_compat.h;E:\KernelTools\common\kernel_compat.h;$(LOCALAPPDATA)\VisualGDB\AutoDownloadedSources\kubuntu13vm\kconfig.h\kconfig.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <NMakePreprocessorDefinitions>__VisualGDB_CFG_Debug_fedora64;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>

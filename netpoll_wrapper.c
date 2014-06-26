@@ -14,13 +14,18 @@ static void hook_receive_skb(void *pContext, struct sk_buff *pSkb);
 
 struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int localPort, const char *pOptionalLocalIp)
 {
+	struct net_device *pDevice;
+	struct netpoll_wrapper *pResult;
+	int localIp;
+	int err;
+
 	if (!pDeviceName || !localPort)
 	{
 		printk(KERN_ERR "kgdboe: cannot create a netpoll wrapper without a device name\n");
 		return NULL;
 	}
 
-	struct net_device *pDevice = dev_get_by_name(&init_net, pDeviceName);
+	pDevice = dev_get_by_name(&init_net, pDeviceName);
 	if (!pDevice)
 	{
 		printk(KERN_ERR "kgdboe: Cannot find network device by name: %s\n", pDeviceName);
@@ -28,7 +33,6 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	}
 
 
-	int localIp;
 	if (pOptionalLocalIp)
 	{
 		localIp = in_aton(pOptionalLocalIp);
@@ -54,7 +58,7 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 		localIp = pDevice->ip_ptr->ifa_list->ifa_local;
 	}
 
-	struct netpoll_wrapper *pResult = (struct netpoll_wrapper *)kmalloc(sizeof(struct netpoll_wrapper), GFP_KERNEL);
+	pResult = (struct netpoll_wrapper *)kmalloc(sizeof(struct netpoll_wrapper), GFP_KERNEL);
 	if (!pResult)
 	{
 		printk(KERN_ERR "kgdboe: cannot allocate memory for netpoll wrapper\n");
@@ -82,7 +86,7 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 #endif
 
 	rtnl_lock();
-	int err = netdev_rx_handler_register(pDevice, netpoll_wrapper_rx_handler, pResult);
+	err = netdev_rx_handler_register(pDevice, netpoll_wrapper_rx_handler, pResult);
 	rtnl_unlock();
 	if (err < 0)
 	{
@@ -132,7 +136,9 @@ void netpoll_wrapper_free(struct netpoll_wrapper *pWrapper)
 	}
 }
 
-static bool allow_broadcast_packets = true;
+#include <linux/module.h>
+static int support_broadcast_packets = 0;
+module_param(support_broadcast_packets, int, 0664);
 
 #include <linux/if_arp.h>
 
@@ -248,7 +254,7 @@ static void hook_receive_skb(void *pContext, struct sk_buff *skb)
 	if (pWrapper->netpoll_obj.local_port && pWrapper->netpoll_obj.local_port == ntohs(uh->dest))
 	{
 		if ((ip_addr_as_int(pWrapper->netpoll_obj.local_ip) && ip_addr_as_int(pWrapper->netpoll_obj.local_ip) == iph->daddr) ||
-			(allow_broadcast_packets && iph->daddr == 0xffffffff))
+			(support_broadcast_packets && iph->daddr == 0xffffffff))
 		{
 			pWrapper->netpoll_obj.remote_port = ntohs(uh->source);
 			ip_addr_as_int(pWrapper->netpoll_obj.remote_ip) = iph->saddr;

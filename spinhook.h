@@ -12,8 +12,8 @@ enum hooked_spinlock_state
 struct hooked_spinlock
 {
 	struct list_head list;
-	spinlock_t *lock;
-	spinlock_t saved_state;
+	struct raw_spinlock *lock;
+	struct raw_spinlock saved_state;
 };
 
 struct spinlock_hook_manager
@@ -26,7 +26,7 @@ struct spinlock_hook_manager *spinlock_hook_manager_create(void);
 void spinlock_hook_manager_free(struct spinlock_hook_manager *mgr);
 
 //Not thread-safe. Should be called after initialization and before any calls to xxx_all_locks()
-bool hook_spinlock(struct spinlock_hook_manager *mgr, spinlock_t *lock);
+bool hook_spinlock(struct spinlock_hook_manager *mgr, struct raw_spinlock *lock);
 
 //Takes all locks. If any of the locks is already taken, releases all of them and tries again. This avoids
 //deadlocking as we don't always know the order in which the locks are taken by the third-party components.

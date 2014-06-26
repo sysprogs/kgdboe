@@ -14,9 +14,9 @@ struct spinlock_hook_manager *spinlock_hook_manager_create()
 
 void spinlock_hook_manager_free(struct spinlock_hook_manager *mgr)
 {
+	struct hooked_spinlock *hook, *tmp;
 	BUG_ON(!mgr);
 	BUG_ON(mgr->global_state != hooked_spinlock_not_owned);
-	struct hooked_spinlock *hook, *tmp;
 	list_for_each_entry_safe(hook, tmp, &mgr->hooks, list)
 	{
 		kfree(hook);
@@ -24,14 +24,15 @@ void spinlock_hook_manager_free(struct spinlock_hook_manager *mgr)
 	kfree(mgr);
 }
 
-bool hook_spinlock(struct spinlock_hook_manager *mgr, spinlock_t *lock)
+bool hook_spinlock(struct spinlock_hook_manager *mgr, struct raw_spinlock *lock)
 {
+	struct hooked_spinlock *hook;
 	BUG_ON(!mgr);
 	BUG_ON(!lock);
 	if (mgr->global_state != hooked_spinlock_not_owned)
 		return false;
 
-	struct hooked_spinlock *hook = (struct hooked_spinlock *)kmalloc(sizeof(struct hooked_spinlock), GFP_KERNEL);
+	hook = (struct hooked_spinlock *)kmalloc(sizeof(struct hooked_spinlock), GFP_KERNEL);
 	if (!hook)
 		return false;
 
@@ -50,7 +51,7 @@ void spinlock_hook_manager_take_all_locks(struct spinlock_hook_manager *mgr)
 		struct hooked_spinlock *lock, *busy_lock = NULL;
 		list_for_each_entry(lock, &mgr->hooks, list)
 		{
-			if (!spin_trylock(lock->lock))
+			if (!raw_spin_trylock(lock->lock))
 			{
 				busy_lock = lock;
 				break;
@@ -67,7 +68,7 @@ void spinlock_hook_manager_take_all_locks(struct spinlock_hook_manager *mgr)
 		{
 			if (lock == busy_lock)
 				break;
-			spin_unlock(lock->lock);
+			raw_spin_unlock(lock->lock);
 		}
 
 		cpu_relax();
@@ -83,10 +84,10 @@ void spinlock_hook_manager_save_and_reset_all_locks(struct spinlock_hook_manager
 	list_for_each_entry(lock, &mgr->hooks, list)
 	{
 		if (mgr->global_state == hooked_spinlock_taken)
-			spin_unlock(lock->lock);
+			raw_spin_unlock(lock->lock);
 
 		lock->saved_state = *lock->lock;
-		spin_lock_init(lock->lock);
+		raw_spin_lock_init(lock->lock);
 	}
 
 	mgr->global_state = hooked_spinlock_saved;

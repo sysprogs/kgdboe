@@ -137,7 +137,7 @@ bool nethook_initialize(struct net_device *dev)
 			continue;
 		if (within_module_core((unsigned long)desc->action->handler, owner_module))
 		{
-			printk(KERN_INFO "kgdboe: IRQ %d appears to be managed by %s and will be disabled while debugger is stopped.", i, owner_module->name);
+			printk(KERN_INFO "kgdboe: IRQ %d appears to be managed by %s and will be disabled while stopped in debugger.", i, owner_module->name);
 			if (!irqsync_add_managed_irq(nethook.irqsync, i, desc))
 			{
 				printk(KERN_ERR "kgdboe: failed to take control over IRQ %d. Aborting\n", i);
@@ -156,7 +156,7 @@ bool nethook_initialize(struct net_device *dev)
 
 	list_for_each_entry(napi, &dev->napi_list, dev_list)
 	{
-		if (!hook_spinlock(nethook.spinhook, &napi->poll_lock))
+		if (!hook_spinlock(nethook.spinhook, &napi->poll_lock.rlock))
 		{
 			printk(KERN_ERR "kgdboe: failed to hook spinlock of NAPI %p. Aborting\n", napi);
 			nethook_cleanup();
@@ -164,14 +164,14 @@ bool nethook_initialize(struct net_device *dev)
 		}
 	}
 
-	if (!hook_spinlock(nethook.spinhook, timerhook_get_spinlock(nethook.timerhook)))
+	if (!hook_spinlock(nethook.spinhook, &timerhook_get_spinlock(nethook.timerhook)->rlock))
 	{
 		printk(KERN_ERR "kgdboe: failed to %s timer lock. Aborting\n", owner_module->name);
 		nethook_cleanup();
 		return false;
 	}
 
-	if (!hook_spinlock(nethook.spinhook, &nethook.netdev_api_lock))
+	if (!hook_spinlock(nethook.spinhook, &nethook.netdev_api_lock.rlock))
 	{
 		printk(KERN_ERR "kgdboe: failed to hook %s API lock. Aborting\n", dev->name);
 		nethook_cleanup();
@@ -181,7 +181,7 @@ bool nethook_initialize(struct net_device *dev)
 	for (i = 0; i < dev->num_tx_queues; i++)
 	{
 		printk(KERN_INFO "kgdboe: hooking TX queue #%d of %s...\n", i, dev->name);
-		if (!hook_spinlock(nethook.spinhook, &netdev_get_tx_queue(dev, i)->_xmit_lock))
+		if (!hook_spinlock(nethook.spinhook, &netdev_get_tx_queue(dev, i)->_xmit_lock.rlock))
 		{
 			printk(KERN_ERR "kgdboe: failed to hook TX queue #%d of %s. Aborting\n", i, dev->name);
 			nethook_cleanup();
@@ -191,7 +191,7 @@ bool nethook_initialize(struct net_device *dev)
 
 	if (jiffies_lock)
 	{
-		if (!hook_spinlock(nethook.spinhook, &jiffies_lock->lock))
+		if (!hook_spinlock(nethook.spinhook, &jiffies_lock->lock.rlock))
 		{
 			printk(KERN_ERR "kgdboe: failed to hook jiffies_lock. Aborting\n");
 			nethook_cleanup();
@@ -201,6 +201,8 @@ bool nethook_initialize(struct net_device *dev)
 	else
 		printk(KERN_WARNING "kgdboe: cannot find and hook jiffies_lock. Your session will hang if a breakpoint coincides with jiffies updating.\n");
 
+	printk(KERN_INFO "kgdboe: your kernel has been hooked to avoid deadlocks caused by accessing network driver from debugger.\n");
+	printk(KERN_INFO "        If you experience random hangups, try enabling the forced single-CPU mode via module parameters.\n");
 	return true;
 }
 
@@ -252,7 +254,7 @@ void nethook_release_relevant_resources()
 	irqsync_resume_irqs(nethook.irqsync);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
 #define preempt_count_set(val) preempt_count() = val
 #endif
 
