@@ -8,7 +8,7 @@
 * Supported kernel versions: 3.8.x - 3.15.x
 *
 * Usage:
-*	1. Build the module: make -C /lib/modules $(uname -r)/build M=$(pwd)
+*	1. Build the module: make -C /lib/modules/$(uname -r)/build M=$(pwd)
 *   2. Load the module: insmod kgdboe.ko [device_name=ethX] [udp_port=Y]
 *	3. Check the load status: dmesg | tail
 *	4. Connect from gdb: target remote udp:<ip>:<port>

@@ -90,7 +90,7 @@
       <DetectModuleLoadEvents>true</DetectModuleLoadEvents>
       <HookPrintk>false</HookPrintk>
       <EnableDebugHelper>true</EnableDebugHelper>
-      <DebugHangingMachine>false</DebugHangingMachine>
+      <DebugHangingMachine>true</DebugHangingMachine>
       <SymbolSettings>
         <AutoLoadSymbolsForMainModule>true</AutoLoadSymbolsForMainModule>
         <InTreeModuleMode>LoadNone</InTreeModuleMode>

@@ -13,9 +13,9 @@
 #else
 
 #define register_tracepoint_wrapper(tp, func, ctx)	\
-	tracepoint_probe_register(kallsyms_lookup_name("__tracepoint_" #tp), func, ctx)
+	tracepoint_probe_register((struct tracepoint *)kallsyms_lookup_name("__tracepoint_" #tp), func, ctx)
 
 #define unregister_tracepoint_wrapper(tp, func, ctx)	\
-	tracepoint_probe_unregister(kallsyms_lookup_name("__tracepoint_" #tp), func, ctx)
+	tracepoint_probe_unregister((struct tracepoint *)kallsyms_lookup_name("__tracepoint_" #tp), func, ctx)
 
 #endif
