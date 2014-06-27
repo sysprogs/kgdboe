@@ -209,13 +209,67 @@ static void netpoll_wrapper_handle_arp(struct netpoll_wrapper *pWrapper, struct 
 	}
 }
 
+static bool parse_udp_packet(struct sk_buff *skb, struct iphdr **piph, struct udphdr **puh, int *pulen)
+{
+	int proto, len, ulen;
+	struct iphdr *iph;
+	struct udphdr *uh;
+
+	proto = ntohs(eth_hdr(skb)->h_proto);
+	if (proto != ETH_P_IP)
+		return false;
+	if (skb->pkt_type == PACKET_OTHERHOST)
+		return false;
+	if (skb_shared(skb))
+		return false;
+
+	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+		return false;
+	iph = (struct iphdr *)skb->data;
+	if (iph->ihl < 5 || iph->version != 4)
+		return false;
+	if (!pskb_may_pull(skb, iph->ihl * 4))
+		return false;
+	iph = (struct iphdr *)skb->data;
+	if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
+		return false;
+
+	len = ntohs(iph->tot_len);
+	if (skb->len < len || len < iph->ihl * 4)
+		return false;
+
+	/*
+	* Our transport medium may have padded the buffer out.
+	* Now We trim to the true length of the frame.
+	*/
+	if (pskb_trim_rcsum(skb, len))
+		return false;
+
+	iph = (struct iphdr *)skb->data;
+	if (iph->protocol != IPPROTO_UDP)
+		return false;
+
+	len -= iph->ihl * 4;
+	uh = (struct udphdr *)(((char *)iph) + iph->ihl * 4);
+	ulen = ntohs(uh->len);
+
+	if (ulen != len)
+		return false;
+
+	*piph = iph;
+	*puh = uh;
+	*pulen = ulen;
+
+	return true;
+}
+
 //We need this function in addition to netpoll_wrapper_rx_handler() because pre-3.15 kernel versions 
 //will not call the rx handler for the packets matching the IP/port of our netpoll objects (expecting them
 //to be handled in rx_hook that we don't use because it provides no way of reading the MAC address).
 static void hook_receive_skb(void *pContext, struct sk_buff *skb)
 {
-	int proto, len, ulen;
-	const struct iphdr *iph;
+	int ulen;
+	struct iphdr *iph;
 	struct udphdr *uh;
 
 	struct netpoll_wrapper *pWrapper = (struct netpoll_wrapper *)pContext;
@@ -229,46 +283,8 @@ static void hook_receive_skb(void *pContext, struct sk_buff *skb)
 		return;
 	}
 
-	proto = ntohs(eth_hdr(skb)->h_proto);
-	if (proto != ETH_P_IP)
-		goto out;
-	if (skb->pkt_type == PACKET_OTHERHOST)
-		goto out;
-	if (skb_shared(skb))
-		goto out;
-
-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-		goto out;
-	iph = (struct iphdr *)skb->data;
-	if (iph->ihl < 5 || iph->version != 4)
-		goto out;
-	if (!pskb_may_pull(skb, iph->ihl * 4))
-		goto out;
-	iph = (struct iphdr *)skb->data;
-	if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
-		goto out;
-
-	len = ntohs(iph->tot_len);
-	if (skb->len < len || len < iph->ihl * 4)
-		goto out;
-
-	/*
-	* Our transport medium may have padded the buffer out.
-	* Now We trim to the true length of the frame.
-	*/
-	if (pskb_trim_rcsum(skb, len))
-		goto out;
-
-	iph = (struct iphdr *)skb->data;
-	if (iph->protocol != IPPROTO_UDP)
-		goto out;
-
-	len -= iph->ihl * 4;
-	uh = (struct udphdr *)(((char *)iph) + iph->ihl * 4);
-	ulen = ntohs(uh->len);
-
-	if (ulen != len)
-		goto out;
+	if (!parse_udp_packet(skb, &iph, &uh, &ulen))
+		return;
 
 	if (pWrapper->netpoll_obj.local_port && pWrapper->netpoll_obj.local_port == ntohs(uh->dest))
 	{
@@ -283,8 +299,6 @@ static void hook_receive_skb(void *pContext, struct sk_buff *skb)
 				pWrapper->pReceiveHandler(pWrapper, ntohs(uh->source), (char *)(uh + 1), ulen - sizeof(struct udphdr));
 		}
 	}
-out:
-	return;
 }
 
 //We need this in addition to hook_receive_skb() because not dropping a packet
@@ -294,9 +308,28 @@ out:
 static rx_handler_result_t netpoll_wrapper_rx_handler(struct sk_buff **pskb)
 {
 	struct netpoll_wrapper *pWrapper = (struct netpoll_wrapper *)(*pskb)->dev->rx_handler_data;
+	bool drop = false;
 	BUG_ON(!pWrapper);
 
 	if (pWrapper->drop_other_packets)
+		drop = true;
+	else
+	{
+		int ulen;
+		struct iphdr *iph;
+		struct udphdr *uh;
+
+		if (parse_udp_packet(*pskb, &iph, &uh, &ulen))
+		{
+			if (pWrapper->netpoll_obj.local_port && pWrapper->netpoll_obj.local_port == ntohs(uh->dest) && (ip_addr_as_int(pWrapper->netpoll_obj.local_ip) && ip_addr_as_int(pWrapper->netpoll_obj.local_ip) == iph->daddr))
+			{
+				//Otherwise Linux itself may handle it, reply with ICMP 'port not available' and force GDB to disconnect.
+				drop = true;
+			}
+		}
+	}
+
+	if (drop)
 	{
 		kfree_skb(*pskb);
 		return RX_HANDLER_CONSUMED;
