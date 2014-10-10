@@ -37,7 +37,7 @@
   <Build xsi:type="com.visualgdb.build.linux.kernel.module">
     <VerboseBuild>false</VerboseBuild>
     <MakeFilePathRelativeToSourceDir>Makefile</MakeFilePathRelativeToSourceDir>
-    <AdditionalMakeArguments />
+    <AdditionalMakeArguments>V=1</AdditionalMakeArguments>
     <MakeCommandTemplate>
       <SkipWhenRunningCommandList>false</SkipWhenRunningCommandList>
       <Command>make</Command>
