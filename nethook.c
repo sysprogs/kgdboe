@@ -30,6 +30,25 @@
 	you absolutely need SMP during debugging.
 */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0) && defined(__arm__)
+int __attribute__((weak)) set_memory_rw(unsigned long addr, int numpages)
+{
+	return 0;
+}
+#endif
+
+#if !defined(CONFIG_NETPOLL) || !CONFIG_NETPOLL
+#error kgdboe requires Netpoll support. Please enable CONFIG_NETCONSOLE and CONFIG_NETPOLL in your KConfig and rebuild the kernel
+#endif
+
+#if !defined(CONFIG_KGDB) || !CONFIG_KGDB
+#error kgdboe requires kgdb support. Please enable CONFIG_KGDB in your KConfig and rebuild the kernel
+#endif
+
+#if !defined(CONFIG_TRACEPOINTS) || !CONFIG_TRACEPOINTS
+#error kgdboe requires tracepoint support. Please enable CONFIG_FTRACE and CONFIG_TRACEPOINTS in your KConfig and rebuild the kernel
+#endif
+
 struct nethook
 {
 	bool initialized;
