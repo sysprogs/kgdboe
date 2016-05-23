@@ -30,13 +30,6 @@
 	you absolutely need SMP during debugging.
 */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0) && defined(__arm__)
-int __attribute__((weak)) set_memory_rw(unsigned long addr, int numpages)
-{
-	return 0;
-}
-#endif
-
 #if !defined(CONFIG_NETPOLL) || !CONFIG_NETPOLL
 #error kgdboe requires Netpoll support. Please enable CONFIG_NETCONSOLE and CONFIG_NETPOLL in your KConfig and rebuild the kernel
 #endif
@@ -88,6 +81,17 @@ static struct nethook nethook;
 
 DECLARE_NET_API_HOOK2(ndo_get_stats64, struct rtnl_link_stats64*, struct net_device *, dev, struct rtnl_link_stats64 *, storage)
 DECLARE_NET_API_HOOK1(ndo_get_stats, struct net_device_stats*, struct net_device *, dev)
+
+typedef int (*PSET_MEMORY_RW)(unsigned long, int);
+
+static int set_memory_rw_wrapper(unsigned long addr, int numpages)
+{
+    PSET_MEMORY_RW p_set_memory_rw = (PSET_MEMORY_RW)kallsyms_lookup_name("set_memory_rw");
+    if (p_set_memory_rw)
+        return p_set_memory_rw(addr, numpages);
+    else
+    	return 0;
+}
 
 bool nethook_initialize(struct net_device *dev)
 {
@@ -145,7 +149,7 @@ bool nethook_initialize(struct net_device *dev)
 
 	spin_lock_init(&nethook.netdev_api_lock);
 
-	err = set_memory_rw(((unsigned long)dev->netdev_ops >> PAGE_SHIFT) << PAGE_SHIFT, 2);
+	err = set_memory_rw_wrapper(((unsigned long)dev->netdev_ops >> PAGE_SHIFT) << PAGE_SHIFT, 2);
 	if (err)
 	{
 		printk(KERN_ERR "Cannot change memory protection attributes of netdev_ops for %s. Aborting.", dev->name);
