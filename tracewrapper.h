@@ -22,6 +22,7 @@ static struct tracepoint *do_lookup_tracepoint(const char *tracepointName, const
         struct tracepoint **ppTracepoint = (struct tracepoint **)kallsyms_lookup_name(tracepointPtrName);
         BUG_ON(!ppTracepoint);
         pTracepoint = *ppTracepoint;
+		BUG_ON(!pTracepoint);		
     }
     
     return pTracepoint;
