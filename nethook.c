@@ -198,12 +198,12 @@ bool nethook_initialize(struct net_device *dev)
 
 	list_for_each_entry(napi, &dev->napi_list, dev_list)
 	{
-		if (!hook_spinlock(nethook.spinhook, &napi->poll_lock.rlock))
+		/*if (!hook_spinlock(nethook.spinhook, &napi->poll_lock.rlock))
 		{
 			printk(KERN_ERR "kgdboe: failed to hook spinlock of NAPI %p. Aborting\n", napi);
 			nethook_cleanup();
 			return false;
-		}
+		}*/
 	}
 
 	if (!hook_spinlock(nethook.spinhook, &timerhook_get_spinlock(nethook.timerhook)->rlock))

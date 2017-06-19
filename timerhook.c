@@ -36,6 +36,12 @@ struct timer_hook *timerhook_create(struct module *moduleToHook)
 {
 	struct timer_hook *hook;
 	BUG_ON(!moduleToHook);
+    
+    if (!tracepoint_available(timer_expire_entry) || !tracepoint_available(timer_expire_exit))
+    {
+        printk(KERN_ERR "kgdboe: Missing tracepoints for timer_expire_entry/timer_expire_exit. Aborting.\n");
+        return NULL;
+    }
 
 	hook = (struct timer_hook *)kmalloc(sizeof(struct timer_hook), GFP_KERNEL);
 	if (!hook)

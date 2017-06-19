@@ -28,6 +28,12 @@ struct netpoll_wrapper *netpoll_wrapper_create(const char *pDeviceName, int loca
 	struct netpoll_wrapper *pResult;
 	int localIp;
 	int err;
+    
+    if (!tracepoint_available(netif_receive_skb))
+    {
+        printk(KERN_ERR "kgdboe: Missing tracepoints for netif_receive_skb. Aborting.\n");
+        return NULL;
+    }
 
 	if (!pDeviceName || !localPort)
 	{
