@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.16
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{A3061986-218F-483F-A495-4FD7C6A4062B}") = "kgdboe", "kgdboe.vkrnlproj", "{9049D3CE-D314-47E5-93AD-E287DCADC588}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Default|VisualKernel = Default|VisualKernel
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9049D3CE-D314-47E5-93AD-E287DCADC588}.Default|VisualKernel.ActiveCfg = Default|VisualKernel
+		{9049D3CE-D314-47E5-93AD-E287DCADC588}.Default|VisualKernel.Build.0 = Default|VisualKernel
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B04A6B7C-D22A-4E8A-A1E7-F4946B22466F}
+	EndGlobalSection
+EndGlobal

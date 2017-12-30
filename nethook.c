@@ -79,7 +79,22 @@ static struct nethook nethook;
 	return result;	\
 }
 
+#define DECLARE_NET_API_HOOK2V(name, return_type, type1, arg1, type2, arg2) \
+	return_type(*original_ ## name)(type1 arg1, type2 arg2);	\
+	\
+	return_type name ## _hook(type1 arg1, type2 arg2)	\
+{	\
+	spin_lock(&nethook.netdev_api_lock);	\
+	original_ ## name(arg1, arg2);	\
+	spin_unlock(&nethook.netdev_api_lock);	\
+}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
 DECLARE_NET_API_HOOK2(ndo_get_stats64, struct rtnl_link_stats64*, struct net_device *, dev, struct rtnl_link_stats64 *, storage)
+#else
+DECLARE_NET_API_HOOK2V(ndo_get_stats64, void, struct net_device *, dev, struct rtnl_link_stats64 *, storage)
+#endif
+    
 DECLARE_NET_API_HOOK1(ndo_get_stats, struct net_device_stats*, struct net_device *, dev)
 
 typedef int (*PSET_MEMORY_RW)(unsigned long, int);
@@ -167,7 +182,7 @@ bool nethook_initialize(struct net_device *dev)
 
 	HOOK_NET_API_FUNC(ndo_get_stats);
 	HOOK_NET_API_FUNC(ndo_get_stats64);
-
+    
 #undef HOOK_NET_API_FUNC
 
 	nethook.hooked_device = dev;

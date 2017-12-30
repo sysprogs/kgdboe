@@ -45,14 +45,14 @@ static void poll_napi(struct net_device *dev, int budget)
 	}
 }
 #else
-static void __attribute__((optimize("O2"))) poll_napi(struct net_device *dev, int unused)
+static void __attribute__((optimize("O2"))) poll_napi(struct net_device *dev, int budget)
 {
     struct napi_struct *napi;
     int cpu = smp_processor_id();
 
     list_for_each_entry(napi, &dev->napi_list, dev_list) {
         if (cmpxchg(&napi->poll_owner, -1, cpu) == -1) {
-            poll_one_napi(napi, 0);
+            poll_one_napi(napi, budget);
             smp_store_release(&napi->poll_owner, -1);
         }
     }
