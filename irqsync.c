@@ -12,7 +12,11 @@
 	still active. For that reason we use a timer to enable the IRQ later once the normal execution is resumed.
 */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void irqsync_timer_func(unsigned long ctx);
+#else
+static void irqsync_timer_func(struct timer_list * t);
+#endif
 #define IRQSYNC_TIMER_PERIOD (HZ / 100)
 
 struct irqsync_manager *irqsync_create(void)
@@ -22,9 +26,13 @@ struct irqsync_manager *irqsync_create(void)
 		return NULL;
 	memset(result, 0, sizeof(*result));
 	spin_lock_init(&result->lock);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 	init_timer(&result->timer);
 	result->timer.function = irqsync_timer_func;
 	result->timer.data = (unsigned long)result;
+#else
+	timer_setup(&result->timer, irqsync_timer_func, 0);
+#endif
 	INIT_LIST_HEAD(&result->irqs);
 	mod_timer(&result->timer, jiffies + IRQSYNC_TIMER_PERIOD);
 	return result;
@@ -92,9 +100,17 @@ void irqsync_resume_irqs(struct irqsync_manager *mgr)
 	spin_unlock(&mgr->lock);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void irqsync_timer_func(unsigned long ctx)
+#else
+static void irqsync_timer_func(struct timer_list * t)
+#endif
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 	struct irqsync_manager *mgr = (struct irqsync_manager *)ctx;
+#else
+	struct irqsync_manager *mgr = from_timer(mgr, t, timer);
+#endif
 	BUG_ON(!mgr);
 	if (spin_trylock(&mgr->lock))
 	{

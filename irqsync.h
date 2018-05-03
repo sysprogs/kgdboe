@@ -4,6 +4,7 @@
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
+#include <linux/version.h>
 
 struct managed_irq
 {
