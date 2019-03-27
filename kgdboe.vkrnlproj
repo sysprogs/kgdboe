@@ -1,20 +1,20 @@
 <?xml version="1.0"?>
 <VisualGDBProjectSettings2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <ConfigurationName>CMake</ConfigurationName>
+  <ConfigurationName>Default</ConfigurationName>
   <Project xsi:type="com.visualgdb.project.linux.kernel">
     <CustomSourceDirectories>
       <Directories />
       <PathStyle>Unknown</PathStyle>
     </CustomSourceDirectories>
     <KernelDebugHost>
-      <HostName>kubuntu17k</HostName>
+      <HostName>ubuntu18k</HostName>
       <Transport>SSH</Transport>
       <UserName>testuser</UserName>
     </KernelDebugHost>
     <MainSourceTransferCommand>
       <SkipWhenRunningCommandList>false</SkipWhenRunningCommandList>
       <RemoteHost>
-        <HostName>kubuntu17k</HostName>
+        <HostName>ubuntu18k</HostName>
         <Transport>SSH</Transport>
         <UserName>testuser</UserName>
       </RemoteHost>
@@ -58,10 +58,43 @@
     </MakeCommandTemplate>
     <IntelliSenseMode>Disabled</IntelliSenseMode>
     <KernelVersion>
-      <Release>4.13.0-16-generic</Release>
-      <Version>#19-Ubuntu SMP Wed Oct 11 18:35:14 UTC 2017</Version>
+      <Release>4.18.0-16-generic</Release>
+      <Version>#17-Ubuntu SMP Fri Feb 8 00:06:57 UTC 2019</Version>
     </KernelVersion>
   </Build>
+  <CustomBuild>
+    <PreSyncActions />
+    <PreBuildActions />
+    <PostBuildActions />
+    <PreCleanActions />
+    <PostCleanActions />
+  </CustomBuild>
+  <CustomDebug>
+    <PreDebugActions />
+    <PostDebugActions />
+    <DebugStopActions />
+    <BreakMode>Default</BreakMode>
+  </CustomDebug>
+  <CustomShortcuts>
+    <Shortcuts />
+    <ShowMessageAfterExecuting>true</ShowMessageAfterExecuting>
+  </CustomShortcuts>
+  <UserDefinedVariables />
+  <ImportedPropertySheets />
+  <CodeSense>
+    <Enabled>Unknown</Enabled>
+    <ExtraSettings>
+      <HideErrorsInSystemHeaders>true</HideErrorsInSystemHeaders>
+      <SupportLightweightReferenceAnalysis>false</SupportLightweightReferenceAnalysis>
+      <CheckForClangFormatFiles xsi:nil="true" />
+      <FormattingEngine xsi:nil="true" />
+    </ExtraSettings>
+    <CodeAnalyzerSettings>
+      <Enabled>false</Enabled>
+    </CodeAnalyzerSettings>
+  </CodeSense>
+  <Configurations />
+  <ProgramArgumentsSuggestions />
   <Debug xsi:type="com.visualgdb.debug.linux.kernel">
     <AdditionalStartupCommands />
     <AdditionalGDBSettings>
@@ -98,56 +131,32 @@
     <RunGDBWithSUDO>false</RunGDBWithSUDO>
     <DeploymentDirectory>/tmp</DeploymentDirectory>
     <KernelConnection xsi:type="com.visualgdb.debug.linux.kernel.connection.vm">
-      <VMFile>F:\VM\vkernel3\kubuntu17k\kubuntu17k.vmx</VMFile>
+      <VMFile>F:\VM\vkernel31\ubuntu18k\ubuntu18k.vmx</VMFile>
       <Bitness>AutoDetet</Bitness>
       <Type>VMWare</Type>
     </KernelConnection>
     <SessionSettings>
       <EnumerateModulesOnStart>true</EnumerateModulesOnStart>
       <DetectModuleLoadEvents>true</DetectModuleLoadEvents>
-      <HookPrintk>true</HookPrintk>
-      <EnableDebugHelper>true</EnableDebugHelper>
+      <HookPrintk>false</HookPrintk>
+      <EnableDebugHelper>false</EnableDebugHelper>
       <DebugHangingMachine>false</DebugHangingMachine>
       <DetectKernelLoadOffset>true</DetectKernelLoadOffset>
       <SymbolSettings>
         <AutoLoadSymbolsForMainModule>true</AutoLoadSymbolsForMainModule>
         <InTreeModuleMode>LoadNone</InTreeModuleMode>
-        <EnabledInTreeModules />
-        <AdditionalModuleSymbolFiles />
+        <EnabledInTreeModules>
+          <string />
+        </EnabledInTreeModules>
+        <AdditionalModuleSymbolFiles>
+          <string />
+        </AdditionalModuleSymbolFiles>
         <AutoLoadInTreeSymbolsOnModuleLoad>true</AutoLoadInTreeSymbolsOnModuleLoad>
       </SymbolSettings>
       <DelayedSymbolLoadingWorkaround>false</DelayedSymbolLoadingWorkaround>
       <StopOnModuleEvents>false</StopOnModuleEvents>
+      <ExistingKallsymsDump>E:\temp\kallsyms2</ExistingKallsymsDump>
+      <ModuleLoadArgs>udp_port=31337 device_name=ens33 force_single_core=0</ModuleLoadArgs>
     </SessionSettings>
   </Debug>
-  <CustomBuild>
-    <PreSyncActions />
-    <PreBuildActions />
-    <PostBuildActions />
-    <PreCleanActions />
-    <PostCleanActions />
-  </CustomBuild>
-  <CustomDebug>
-    <PreDebugActions />
-    <PostDebugActions />
-    <DebugStopActions />
-    <BreakMode>Default</BreakMode>
-  </CustomDebug>
-  <CustomShortcuts>
-    <Shortcuts />
-    <ShowMessageAfterExecuting>true</ShowMessageAfterExecuting>
-  </CustomShortcuts>
-  <UserDefinedVariables />
-  <ImportedPropertySheets />
-  <CodeSense>
-    <Enabled>Unknown</Enabled>
-    <ExtraSettings>
-      <HideErrorsInSystemHeaders>true</HideErrorsInSystemHeaders>
-      <SupportLightweightReferenceAnalysis>false</SupportLightweightReferenceAnalysis>
-    </ExtraSettings>
-    <CodeAnalyzerSettings>
-      <Enabled>false</Enabled>
-    </CodeAnalyzerSettings>
-  </CodeSense>
-  <ProgramArgumentsSuggestions />
 </VisualGDBProjectSettings2>

@@ -21,8 +21,9 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
 	if (!test_bit(NAPI_STATE_SCHED, &napi->state))
 		return budget;
 
-	set_bit(NAPI_STATE_NPSVC, &napi->state);
-
+	if (test_and_set_bit(NAPI_STATE_NPSVC, &napi->state))
+		return budget;
+	
 	work = napi->poll(napi, budget);
 	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
 
@@ -45,7 +46,7 @@ static void poll_napi(struct net_device *dev, int budget)
 	}
 }
 #else
-static void __attribute__((optimize("O2"))) poll_napi(struct net_device *dev, int budget)
+static void __attribute__((optimize("O2", "-fno-omit-frame-pointer"))) poll_napi(struct net_device *dev, int budget)
 {
     struct napi_struct *napi;
     int cpu = smp_processor_id();
