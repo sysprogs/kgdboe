@@ -110,13 +110,22 @@ static struct kgdb_io kgdboe_io_ops = {
 	.post_exception = kgdboe_post_exception
 };
 
-void force_single_cpu_mode(void)
+int force_single_cpu_mode(void)
 {
 	printk(KERN_INFO "kgdboe: single-core mode enabled. Shutting down all cores except #0. This is slower, but safer.\n");
 	printk(KERN_INFO "kgdboe: you can try using multi-core mode by specifying the following argument:\n");
 	printk(KERN_INFO "\tinsmod kgdboe.ko force_single_core = 0\n");
+#ifdef CONFIG_HOTPLUG_CPU
 	for (int i = 1; i < nr_cpu_ids; i++)
 		cpu_down(i);
+#else
+	if (nr_cpu_ids != 1)
+	{
+		printk(KERN_ERR "kgdboe: failed to enable the single-CPU mode. %d CPUs found and HOTPLUG_CPU is not enabled.\n", nr_cpu_ids);
+		return -EINVAL;
+	}
+#endif
+	return 0;
 }
 
 int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool force_single_core)
@@ -132,7 +141,9 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 	
 	if (force_single_core)
 	{
-		force_single_cpu_mode();
+		err = force_single_cpu_mode();
+		if (err)
+			return err;
 	}
 	else if (!nethook_initialize(s_pKgdboeNetpoll->pDeviceWithHandler))
 	{
