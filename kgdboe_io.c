@@ -112,6 +112,12 @@ static struct kgdb_io kgdboe_io_ops = {
 
 int force_single_cpu_mode(void)
 {
+	if (num_online_cpus() == 1)
+	{
+		printk(KERN_INFO "kgdboe: only one active CPU found. Skipping core shutdown.\n");
+		return 0;
+	}
+
 	printk(KERN_INFO "kgdboe: single-core mode enabled. Shutting down all cores except #0. This is slower, but safer.\n");
 	printk(KERN_INFO "kgdboe: you can try using multi-core mode by specifying the following argument:\n");
 	printk(KERN_INFO "\tinsmod kgdboe.ko force_single_core = 0\n");
