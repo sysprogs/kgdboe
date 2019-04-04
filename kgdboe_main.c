@@ -41,6 +41,10 @@ MODULE_LICENSE("GPL");
 
 #include <linux/timer.h>
 
+#ifndef CONFIG_KGDB
+#error Your kernel is built without support for KGDB (kernel debugger). Please rebuild your kernel with CONFIG_KGDB enabled.
+#endif
+
 static int udp_port = 31337;
 module_param(udp_port, int, 0444);
 
