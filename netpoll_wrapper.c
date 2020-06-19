@@ -8,6 +8,8 @@
 #include <linux/rtnetlink.h>
 #include "tracewrapper.h"
 
+#include <linux/rcupdate.h>
+
 /*
 	This file contains a wrapper around the netpoll API that encapsulates the following tasks:
 		* Replying to ARP messages while the kernel is stopped (removed from kernel 3.15)

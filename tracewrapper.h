@@ -2,6 +2,12 @@
 #include <linux/version.h>
 #include <linux/kallsyms.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
+extern uint64_t kallsyms_lookup_name_address;
+
+#define kallsyms_lookup_name ((unsigned long(*)(const char *))kallsyms_lookup_name_address)
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
 
 #define register_tracepoint_wrapper(tp, func, ctx)	\

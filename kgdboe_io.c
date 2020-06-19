@@ -5,6 +5,7 @@
 #include "kgdboe_io.h"
 #include "netpoll_wrapper.h"
 #include "nethook.h"
+#include "tracewrapper.h"
 
 struct netpoll_wrapper *s_pKgdboeNetpoll;
 
@@ -72,8 +73,8 @@ static int kgdboe_read_char(void)
 
 	BUG_ON(!s_pKgdboeNetpoll);
 	
-	while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition)
-		netpoll_wrapper_poll(s_pKgdboeNetpoll);
+    while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition)
+        netpoll_wrapper_poll(s_pKgdboeNetpoll);
 
 	result = s_IncomingRingBuffer[s_IncomingRingBufferReadPosition++];
 	s_IncomingRingBufferReadPosition %= sizeof(s_IncomingRingBuffer);
@@ -112,6 +113,8 @@ static struct kgdb_io kgdboe_io_ops = {
 
 int force_single_cpu_mode(void)
 {
+    int cpu;
+    
 	if (num_online_cpus() == 1)
 	{
 		printk(KERN_INFO "kgdboe: only one active CPU found. Skipping core shutdown.\n");
@@ -122,8 +125,20 @@ int force_single_cpu_mode(void)
 	printk(KERN_INFO "kgdboe: you can try using multi-core mode by specifying the following argument:\n");
 	printk(KERN_INFO "\tinsmod kgdboe.ko force_single_core = 0\n");
 #ifdef CONFIG_HOTPLUG_CPU
-	for (int i = 1; i < nr_cpu_ids; i++)
-		cpu_down(i);
+    for_each_possible_cpu(cpu)
+    {
+        if (cpu == 0)
+            continue;
+        
+        if (!cpu_online(cpu))
+            continue;
+        
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
+        remove_cpu(cpu);
+#else
+        cpu_down(cpu);
+#endif
+    }
 #else
 	if (nr_cpu_ids != 1)
 	{
@@ -144,6 +159,14 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 	s_pKgdboeNetpoll = netpoll_wrapper_create(device_name, port, local_ip);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
+    
+    int *_gro_normal_batch = kallsyms_lookup_name("gro_normal_batch");
+    if (_gro_normal_batch)
+    {
+        //Unless we do this, thet network stack will internally accumulate packets before processing, greatly increasing KGDBoE latency.
+        //See gro_normal_one() in dev.c for details.
+        *_gro_normal_batch = 1;
+    }
 	
 	if (force_single_core)
 	{

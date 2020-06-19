@@ -24,8 +24,7 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
 	if (test_and_set_bit(NAPI_STATE_NPSVC, &napi->state))
 		return budget;
 	
-	work = napi->poll(napi, budget);
-	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
+    work = napi->poll(napi, budget);
 
 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
 

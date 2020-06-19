@@ -48,7 +48,7 @@ MODULE_LICENSE("GPL");
 static int udp_port = 31337;
 module_param(udp_port, int, 0444);
 
-static char *device_name = "eth0";
+static char *device_name = "ens33";
 module_param(device_name, charp, 0444);
 
 static char *local_ip = NULL;
@@ -57,8 +57,17 @@ module_param(local_ip, charp, 0444);
 static int force_single_core = 1;
 module_param(force_single_core, int, 0444);
 
+uint64_t kallsyms_lookup_name_address;
+module_param(kallsyms_lookup_name_address, ullong, 0444);
+
 static int __init kgdboe_init(void)
 {
+	if (!kallsyms_lookup_name_address)
+	{
+		printk(KERN_ERR "kgdboe: this kernel version requires specifying the address of kallsyms_lookup_name explicitly. Please append 'kallsyms_lookup_name_address=0x...' to insmod command line.\n");
+		return -EINVAL;
+	}
+	
 	int err = kgdboe_io_init(device_name, udp_port, local_ip, force_single_core != 0);
 	if (err != 0)
 		return err;

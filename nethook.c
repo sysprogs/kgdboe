@@ -10,6 +10,7 @@
 #include <linux/preempt.h>
 #include <linux/seqlock.h>
 #include <linux/version.h>
+#include "tracewrapper.h"
 
 /*
 	This file is the central place for hooking a network card driver to ensure that no other cores are executing
