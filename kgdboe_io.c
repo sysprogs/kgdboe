@@ -18,6 +18,18 @@ static volatile int s_OutgoingBufferUsed;
 
 static bool s_StoppedInKgdb;
 
+static void kgdboe_tasklet_bpt(struct tasklet_struct *p)
+{
+    kgdb_breakpoint();
+}
+
+static DECLARE_TASKLET(kgdboe_tasklet_breakpoint, kgdboe_tasklet_bpt);
+
+void kgdb_schedule_breakpoint(void)
+{
+    tasklet_schedule(&kgdboe_tasklet_breakpoint);
+}
+
 static void kgdboe_rx_handler(void *pContext, int port, char *msg, int len)
 {
 	bool breakpointPending = false;
@@ -37,7 +49,7 @@ static void kgdboe_rx_handler(void *pContext, int port, char *msg, int len)
 	}
 
 	if (breakpointPending && !s_StoppedInKgdb)
-		kgdb_schedule_breakpoint();
+		tasklet_schedule(&kgdboe_tasklet_breakpoint);
 }
 
 static spinlock_t exception_lock;

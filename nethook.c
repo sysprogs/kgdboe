@@ -113,6 +113,8 @@ bool nethook_initialize(struct net_device *dev)
 {
 	struct module *owner_module;
 	seqlock_t *jiffies_lock = (seqlock_t *)kallsyms_lookup_name("jiffies_lock");
+	struct irq_desc *(*pirq_to_desc)(unsigned int irq) = (struct irq_desc *(*)(unsigned int irq))kallsyms_lookup_name("irq_to_desc");
+	struct module *(*pmodule_address)(unsigned long addr) = (struct module *(*)(unsigned long addr))kallsyms_lookup_name("__module_address");
 	int err;
 	int i;
 	struct napi_struct *napi;
@@ -128,8 +130,20 @@ bool nethook_initialize(struct net_device *dev)
 		printk(KERN_ERR "kgdboe: ndo_start_xmit not defined. Cannot determine which module owns %s\n", dev->name);
 		return false;
 	}
+	
+	if (!pirq_to_desc)
+	{
+		printk(KERN_ERR "kgdboe: could not find the irq_to_desc symbol. Cannot determine which module owns %s\n", dev->name);
+		return false;
+	}
+	
+	if (!pmodule_address)
+	{
+		printk(KERN_ERR "kgdboe: could not find the __module_address symbol. Cannot determine which module owns %s\n", dev->name);
+		return false;
+	}
 
-	owner_module = __module_address((unsigned long)dev->netdev_ops->ndo_start_xmit);
+	owner_module = pmodule_address((unsigned long)dev->netdev_ops->ndo_start_xmit);
 	if (!owner_module)
 	{
 		printk(KERN_ERR "kgdboe: cannot find the module owning %s: 0x%p does not belong to any module.\n", dev->name, dev->netdev_ops->ndo_start_xmit);
@@ -190,7 +204,7 @@ bool nethook_initialize(struct net_device *dev)
 
 	for (i = 0; i < nr_irqs; i++)
 	{
-		struct irq_desc *desc = irq_to_desc(i);
+		struct irq_desc *desc = pirq_to_desc(i);
 		if (!desc || !desc->action)
 			continue;
 		if (within_module_core((unsigned long)desc->action->handler, owner_module))

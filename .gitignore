@@ -2,5 +2,6 @@
 CodeDB
 VisualGDBCache
 .vs
+.visualgdb
 Debug
 *.user

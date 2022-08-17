@@ -1,20 +1,20 @@
 <?xml version="1.0"?>
-<VisualGDBProjectSettings2 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <ConfigurationName>Default</ConfigurationName>
+<VisualGDBProjectSettings2 xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Project xsi:type="com.visualgdb.project.linux.kernel">
     <CustomSourceDirectories>
       <Directories />
       <PathStyle>Unknown</PathStyle>
     </CustomSourceDirectories>
+    <AutoProgramSPIFFSPartition>true</AutoProgramSPIFFSPartition>
     <KernelDebugHost>
-      <HostName>ubuntu18k</HostName>
+      <HostName>ubuntu22k</HostName>
       <Transport>SSH</Transport>
       <UserName>testuser</UserName>
     </KernelDebugHost>
     <MainSourceTransferCommand>
       <SkipWhenRunningCommandList>false</SkipWhenRunningCommandList>
       <RemoteHost>
-        <HostName>ubuntu18k</HostName>
+        <HostName>ubuntu20k</HostName>
         <Transport>SSH</Transport>
         <UserName>testuser</UserName>
       </RemoteHost>
@@ -48,6 +48,7 @@
     </ProjectModeSettings>
   </Project>
   <Build xsi:type="com.visualgdb.build.linux.kernel.module">
+    <BuildLogMode xsi:nil="true" />
     <VerboseBuild>false</VerboseBuild>
     <MakeFilePathRelativeToSourceDir>Makefile</MakeFilePathRelativeToSourceDir>
     <AdditionalMakeArguments />
@@ -57,10 +58,7 @@
       <BackgroundMode xsi:nil="true" />
     </MakeCommandTemplate>
     <IntelliSenseMode>Disabled</IntelliSenseMode>
-    <KernelVersion>
-      <Release>4.18.0-16-generic</Release>
-      <Version>#17-Ubuntu SMP Fri Feb 8 00:06:57 UTC 2019</Version>
-    </KernelVersion>
+    <KernelVersion />
   </Build>
   <CustomBuild>
     <PreSyncActions />
@@ -124,14 +122,18 @@
       <ExamineRegistersInRawFormat>true</ExamineRegistersInRawFormat>
       <DisableSignals>false</DisableSignals>
       <EnableAsyncExecutionMode>false</EnableAsyncExecutionMode>
+      <AsyncModeSupportsBreakpoints>true</AsyncModeSupportsBreakpoints>
+      <TemporaryBreakConsolidationTimeout>0</TemporaryBreakConsolidationTimeout>
       <EnableNonStopMode>false</EnableNonStopMode>
       <MaxBreakpointLimit>0</MaxBreakpointLimit>
+      <EnableVerboseMode>true</EnableVerboseMode>
+      <EnablePrettyPrinters>false</EnablePrettyPrinters>
     </AdditionalGDBSettings>
     <GenerateCtrlBreakInsteadOfCtrlC>false</GenerateCtrlBreakInsteadOfCtrlC>
     <RunGDBWithSUDO>false</RunGDBWithSUDO>
     <DeploymentDirectory>/tmp</DeploymentDirectory>
     <KernelConnection xsi:type="com.visualgdb.debug.linux.kernel.connection.vm">
-      <VMFile>F:\VM\vkernel31\ubuntu18k\ubuntu18k.vmx</VMFile>
+      <VMFile>F:\VM\vkernel32\ubuntu20k\ubuntu20k.vmx</VMFile>
       <Bitness>AutoDetet</Bitness>
       <Type>VMWare</Type>
     </KernelConnection>
@@ -139,7 +141,7 @@
       <EnumerateModulesOnStart>true</EnumerateModulesOnStart>
       <DetectModuleLoadEvents>true</DetectModuleLoadEvents>
       <HookPrintk>false</HookPrintk>
-      <EnableDebugHelper>false</EnableDebugHelper>
+      <EnableDebugHelper>true</EnableDebugHelper>
       <DebugHangingMachine>false</DebugHangingMachine>
       <DetectKernelLoadOffset>true</DetectKernelLoadOffset>
       <SymbolSettings>
@@ -149,14 +151,17 @@
           <string />
         </EnabledInTreeModules>
         <AdditionalModuleSymbolFiles>
-          <string />
+          <string>E:\KernelCache\_manual\linux-oem-5.6-5.6.0\drivers\net\ethernet\intel\e1000\e1000.ko</string>
         </AdditionalModuleSymbolFiles>
         <AutoLoadInTreeSymbolsOnModuleLoad>true</AutoLoadInTreeSymbolsOnModuleLoad>
       </SymbolSettings>
       <DelayedSymbolLoadingWorkaround>false</DelayedSymbolLoadingWorkaround>
       <StopOnModuleEvents>false</StopOnModuleEvents>
       <ExistingKallsymsDump>E:\temp\kallsyms2</ExistingKallsymsDump>
-      <ModuleLoadArgs>udp_port=31337 device_name=ens33 force_single_core=0</ModuleLoadArgs>
+      <ModuleLoadArgs>udp_port=31337 device_name=ens33 force_single_core=1 kallsyms_lookup_name_address=0xffffffffb855e900</ModuleLoadArgs>
+      <LiveMemoryPort>19788</LiveMemoryPort>
+      <ShowLiveKernelSymbols>true</ShowLiveKernelSymbols>
+      <KeepBreakpointsInserted>true</KeepBreakpointsInserted>
     </SessionSettings>
   </Debug>
 </VisualGDBProjectSettings2>
