@@ -1,0 +1,8 @@
+#Publish this by running PackageReleaser.exe kgdboe.pkg
+name        KGDBoE
+type        KernelTool
+releasedir  release
+description KGDBoE
+version     1.6
+copyfiles   *.c;*.h;Makefile
+minversion  4.0
