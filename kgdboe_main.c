@@ -45,6 +45,10 @@ MODULE_LICENSE("GPL");
 #error Your kernel is built without support for KGDB (kernel debugger). Please rebuild your kernel with CONFIG_KGDB enabled.
 #endif
 
+#ifdef CONFIG_KGDB_KDB
+#error Your kernel is built with support for KDB frontend for KGDB. Kgdboe does not support it. Please rebuild your kernel with CONFIG_KGDB_KDB disabled.
+#endif
+
 static int udp_port = 31337;
 module_param(udp_port, int, 0444);
 

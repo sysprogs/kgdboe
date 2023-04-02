@@ -39,6 +39,10 @@
 #error kgdboe requires kgdb support. Please enable CONFIG_KGDB in your KConfig and rebuild the kernel
 #endif
 
+#if defined(CONFIG_KGDB_KDB) || CONFIG_KGDB_KDB
+#error kgdboe does not support kdb. Please disable CONFIG_KGDB_KDB in your KConfig and rebuild the kernel
+#endif
+
 #if !defined(CONFIG_TRACEPOINTS) || !CONFIG_TRACEPOINTS
 #error kgdboe requires tracepoint support. Please enable CONFIG_FTRACE and CONFIG_TRACEPOINTS in your KConfig and rebuild the kernel
 #endif
