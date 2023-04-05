@@ -1,6 +1,6 @@
 # KGDBoE - Kernel Debug over Ethernet
 
-KGDBoE is a kernel module to debug Linux kernel on a bare metal using network connection over an ethernet cable. - a kernel module that allows debugging the Linux kernel using the network connection. It is useful on modern PCs that don't have a serial port or a JTAG connector and it's much faster than using a COM port.
+KGDBoE is a kernel module to debug Linux kernel on a bare metal the network connection. It is useful on modern PCs that don't have a serial port or a JTAG connector and it's much faster than using a COM port.
 
 KGDBoE is inspired by the original kgdboe patches by Jason Wessel, but goes well beyond the capabilities of the original tool. The key features are:
 * Works with stock kernels without rebuilding them. Tested on Linux Kernels: 3.8.0-5.15.0, 5.19.0, 6.3.x
@@ -44,6 +44,10 @@ In the gdb (remote)
 ```sh
 add-symbol-file drivers/char/modulename.ko 0xffffffffa0120000
 ```
+
+## Integration with Visual Studio
+
+For the most intuitive debugging experience, kernel source code navigation and tracing, check out [VisualKernel](https://sysprogs.com/VisualKernel/tutorials/network/).
 
 ## Configuration / kernel module parameters
 
