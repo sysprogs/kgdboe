@@ -1,4 +1,6 @@
 #include <linux/kgdb.h>
+#include <linux/namei.h>
+#include <linux/dcache.h>
 #include <linux/module.h>
 #include <linux/kallsyms.h>
 #include <linux/cpu.h>
@@ -161,6 +163,30 @@ int force_single_cpu_mode(void)
 	return 0;
 }
 
+
+void check_device_driver_and_warn_if_untested(const char* device_name)
+{
+	char driver_symlink[256] = {0};
+	snprintf(driver_symlink, sizeof(driver_symlink), "/sys/class/net/%s/device/driver", device_name);
+
+	struct path path;
+
+	int err = kern_path(driver_symlink, LOOKUP_FOLLOW, &path);
+
+	if (err == 0) {
+		char symlink_target[256] = {0};
+		char* ptr = d_path(&path, symlink_target, sizeof(symlink_target));
+		if (!IS_ERR(ptr)) {
+			if (strstr(ptr, "pcnet32") || strstr(ptr, "e1000") || strstr(ptr, "r8169"))
+				return;
+
+			printk(KERN_WARNING "kgdboe: WARNING: kgdboe was only tested on pcnet32, e1000 and r8169 (Detected driver: %s). Other drivers may hang.\n", ptr);
+			return;
+		}
+	}
+	printk(KERN_WARNING "kgdboe: WARNING: could not detect the driver for %s device (via readlink %s). Note that kgdboe was only tested on pcnet32, e1000 and r8169. Other drivers may hang.\n", device_name, driver_symlink);
+}
+
 int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool force_single_core)
 {
 	int err;
@@ -168,6 +194,8 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 
 	spin_lock_init(&exception_lock);
 
+	check_device_driver_and_warn_if_untested(device_name);
+	
 	s_pKgdboeNetpoll = netpoll_wrapper_create(device_name, port, local_ip);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
