@@ -6,3 +6,13 @@ VisualGDBCache
 Debug
 *.user
 release
+*.o
+*.ko
+*.cmd
+*.dwo
+*.swp
+*.symvers
+*.mod
+*.mod.c
+*.o.d
+modules.order

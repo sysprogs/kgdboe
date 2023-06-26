@@ -13,7 +13,7 @@
 *	3. Check the load status: dmesg | tail
 *	4. Connect from gdb: target remote udp:<ip>:<port>
 *
-* WARNING! Using a network driver as a transport on multi-core systems is tricky! 
+* WARNING! Using a network driver as a transport on multi-core systems is tricky!
 *		   KGDB does not fully know what spinlocks/resources the network driver needs
 *		   and if another core has been stopped while holding them, the debugger will hang.
 *		   This module does its best to avoid it by hooking resources that are likely required
@@ -24,12 +24,14 @@
 *				r8169
 *		   Nonetheless, by default it will disable all cores except #0 and will not do the hooking.
 *		   If you absolutely need SMP while debugging, use the force_single_core=0 parameter to override,
-*          but be ready to troubleshoot your network driver if it is different from the ones listed above. 
+*          but be ready to troubleshoot your network driver if it is different from the ones listed above.
 *
 * This file is licensed under the terms of the GNU General Public License
 * version 2. This program is licensed "as is" without any warranty of any
 * kind, whether express or implied.
 */
+
+#define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -62,13 +64,16 @@ module_param(kallsyms_lookup_name_address, ullong, 0444);
 
 static int __init kgdboe_init(void)
 {
+    int err;
+
 	if (!kallsyms_lookup_name_address)
 	{
-		printk(KERN_ERR "kgdboe: this kernel version requires specifying the address of kallsyms_lookup_name explicitly. Please append 'kallsyms_lookup_name_address=0x...' to insmod command line.\n");
+		pr_err("this kernel version requires specifying the address of kallsyms_lookup_name explicitly."
+                            "Please append 'kallsyms_lookup_name_address=0x...' to insmod command line.\n");
 		return -EINVAL;
 	}
-	
-	int err = kgdboe_io_init(device_name, udp_port, local_ip, force_single_core != 0);
+
+	err = kgdboe_io_init(device_name, udp_port, local_ip, force_single_core != 0);
 	if (err != 0)
 		return err;
 

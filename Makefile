@@ -6,5 +6,10 @@ KERNEL_MODULE_OBJECT_FILE_LIST := irqsync.o kgdboe_main.o kgdboe_io.o nethook.o 
 
 obj-m := $(KERNEL_MODULE_NAME).o
 $(KERNEL_MODULE_NAME)-y += $(KERNEL_MODULE_OBJECT_FILE_LIST)
-ccflags-y := -ggdb -Og -std=gnu99
+ccflags-y := -ggdb -Og -Wall -Werror -std=gnu99
 
+all:
+	$(MAKE) -C /lib/modules/$$(uname -r)/build M=$(CURDIR) modules
+
+clean:
+	$(MAKE) -C /lib/modules/$$(uname -r)/build M=$(CURDIR) clean

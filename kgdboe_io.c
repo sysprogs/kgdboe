@@ -39,7 +39,7 @@ static void kgdboe_rx_handler(void *pContext, int port, char *msg, int len)
 	if (!kgdb_connected && (len != 1 || msg[0] == 3))
 		breakpointPending = true;
 
-	for (int i = 0; i < len; i++) 
+	for (int i = 0; i < len; i++)
 	{
 		if (msg[i] == 3)
 			breakpointPending = true;
@@ -84,9 +84,9 @@ static int kgdboe_read_char(void)
 	nethook_netpoll_work_starting();
 
 	BUG_ON(!s_pKgdboeNetpoll);
-	
-    while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition)
-        netpoll_wrapper_poll(s_pKgdboeNetpoll);
+
+    while (s_IncomingRingBufferReadPosition == s_IncomingRingBufferWritePosition) {
+        netpoll_wrapper_poll(s_pKgdboeNetpoll); }
 
 	result = s_IncomingRingBuffer[s_IncomingRingBufferReadPosition++];
 	s_IncomingRingBufferReadPosition %= sizeof(s_IncomingRingBuffer);
@@ -97,7 +97,7 @@ static int kgdboe_read_char(void)
 
 static void kgdboe_flush(void)
 {
-	if (s_OutgoingBufferUsed) 
+	if (s_OutgoingBufferUsed)
 	{
 		nethook_netpoll_work_starting();
 		netpoll_wrapper_send_reply(s_pKgdboeNetpoll, s_OutgoingBuffer, s_OutgoingBufferUsed);
@@ -126,7 +126,7 @@ static struct kgdb_io kgdboe_io_ops = {
 int force_single_cpu_mode(void)
 {
     int cpu;
-    
+
 	if (num_online_cpus() == 1)
 	{
 		printk(KERN_INFO "kgdboe: only one active CPU found. Skipping core shutdown.\n");
@@ -141,10 +141,10 @@ int force_single_cpu_mode(void)
     {
         if (cpu == 0)
             continue;
-        
+
         if (!cpu_online(cpu))
             continue;
-        
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
         remove_cpu(cpu);
 #else
@@ -165,21 +165,22 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 {
 	int err;
 	u8 ipaddr[4];
+    unsigned long _gro_normal_batch;
 
 	spin_lock_init(&exception_lock);
 
 	s_pKgdboeNetpoll = netpoll_wrapper_create(device_name, port, local_ip);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
-    
-    int *_gro_normal_batch = kallsyms_lookup_name("gro_normal_batch");
+
+    _gro_normal_batch = kallsyms_lookup_name("gro_normal_batch");
     if (_gro_normal_batch)
     {
         //Unless we do this, thet network stack will internally accumulate packets before processing, greatly increasing KGDBoE latency.
         //See gro_normal_one() in dev.c for details.
-        *_gro_normal_batch = 1;
+        _gro_normal_batch = 1;
     }
-	
+
 	if (force_single_core)
 	{
 		err = force_single_cpu_mode();
