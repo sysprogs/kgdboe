@@ -45,7 +45,13 @@ static void poll_napi(struct net_device *dev, int budget)
 	}
 }
 #else
+#ifdef __arm__
+#if __LINUX_ARM_ARCH__ >= 6
+static __always_inline void __attribute__((optimize("O2", "-fno-omit-frame-pointer"))) poll_napi(struct net_device *dev, int budget)
+#endif
+#else
 static void __attribute__((optimize("O2", "-fno-omit-frame-pointer"))) poll_napi(struct net_device *dev, int budget)
+#endif
 {
     struct napi_struct *napi;
     int cpu = smp_processor_id();
