@@ -45,7 +45,11 @@ void irqsync_free(struct irqsync_manager *mgr)
 	struct managed_irq *irq, *tmp;
 
 	BUG_ON(!mgr);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
 	del_timer(&mgr->timer);
+#else
+	timer_delete_sync(&mgr->timer);
+#endif
 	spin_lock(&mgr->lock);
 	if (mgr->irqs_disabled)
 		irqsync_enable_all_irqs_locked(mgr);
@@ -108,8 +112,10 @@ static void irqsync_timer_func(struct timer_list * t)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 	struct irqsync_manager *mgr = (struct irqsync_manager *)ctx;
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
 	struct irqsync_manager *mgr = from_timer(mgr, t, timer);
+#else
+	struct irqsync_manager *mgr = timer_container_of(mgr, t, timer);
 #endif
 	BUG_ON(!mgr);
 	if (spin_trylock(&mgr->lock))

@@ -6,6 +6,9 @@
 #include "netpoll_wrapper.h"
 #include "nethook.h"
 #include "tracewrapper.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,9,0)
+	#include <net/hotdata.h>
+#endif
 
 struct netpoll_wrapper *s_pKgdboeNetpoll;
 
@@ -171,15 +174,19 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 	s_pKgdboeNetpoll = netpoll_wrapper_create(device_name, port, local_ip);
 	if (!s_pKgdboeNetpoll)
 		return -EINVAL;
-    
-    int *_gro_normal_batch = kallsyms_lookup_name("gro_normal_batch");
-    if (_gro_normal_batch)
-    {
-        //Unless we do this, thet network stack will internally accumulate packets before processing, greatly increasing KGDBoE latency.
-        //See gro_normal_one() in dev.c for details.
-        *_gro_normal_batch = 1;
-    }
-	
+
+	//Unless we do this, thet network stack will internally accumulate packets before processing, greatly increasing KGDBoE latency.
+	//See gro_normal_one() in dev.c for details.
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
+		int *_gro_normal_batch = kallsyms_lookup_name("gro_normal_batch");
+		if (_gro_normal_batch)
+			*_gro_normal_batch = 1;
+	#else
+		struct net_hotdata * _net_hotdata = kallsyms_lookup_name("net_hotdata");
+		if (_net_hotdata)
+			_net_hotdata->gro_normal_batch = 1;
+	#endif
+
 	if (force_single_core)
 	{
 		err = force_single_cpu_mode();

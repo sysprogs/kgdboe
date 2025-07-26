@@ -202,7 +202,11 @@ bool nethook_initialize(struct net_device *dev)
 
 	nethook.hooked_device = dev;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
 	for (i = 0; i < nr_irqs; i++)
+#else
+	for (i = 0; i < irq_get_nr_irqs(); i++)
+#endif
 	{
 		struct irq_desc *desc = pirq_to_desc(i);
 		if (!desc || !desc->action)
