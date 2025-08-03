@@ -38,6 +38,7 @@
 #include "kgdboe_io.h"
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("KGDBoE - A Network Based KGDB Extension");
 
 #include <linux/timer.h>
 
