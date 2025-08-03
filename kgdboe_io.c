@@ -182,7 +182,7 @@ int kgdboe_io_init(const char *device_name, int port, const char *local_ip, bool
 		if (_gro_normal_batch)
 			*_gro_normal_batch = 1;
 	#else
-		struct net_hotdata * _net_hotdata = kallsyms_lookup_name("net_hotdata");
+		struct net_hotdata * _net_hotdata = (struct net_hotdata *)kallsyms_lookup_name("net_hotdata");
 		if (_net_hotdata)
 			_net_hotdata->gro_normal_batch = 1;
 	#endif

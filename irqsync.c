@@ -112,7 +112,7 @@ static void irqsync_timer_func(struct timer_list * t)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 	struct irqsync_manager *mgr = (struct irqsync_manager *)ctx;
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(6,9,0)
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6,16,0)
 	struct irqsync_manager *mgr = from_timer(mgr, t, timer);
 #else
 	struct irqsync_manager *mgr = timer_container_of(mgr, t, timer);
